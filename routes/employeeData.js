@@ -1,0 +1,107 @@
+const express = require("express");
+const EmployeeLeave = require("../models/EmployeeData");
+const authenticateUser = require("../middleware/authenticateUser");
+
+const router = express.Router();
+
+// API to get the reportingManagerEmail by employeeEmail
+router.get("/get-manager-email/:employeeEmail", async (req, res) => {
+  const { employeeEmail } = req.params;
+
+  try {
+    console.log("Searching for employeeEmail:", employeeEmail);
+
+    // Case-insensitive search
+    const employee = await EmployeeLeave.findOne({
+      employeeEmail: { $regex: new RegExp(`^${employeeEmail}$`, "i") },
+    });
+
+    if (!employee) {
+      console.log("Employee not found in the database");
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    // Include both reportingManager and reportingManagerEmail in the response
+    res.status(200).json({
+      reportingManager: employee.reportingManager,
+      reportingManagerEmail: employee.reportingManagerEmail,
+    });
+  } catch (error) {
+    console.error("Error fetching manager details:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// API to get leave data by employeeEmail
+router.get("/get-leave-data/:employeeEmail", async (req, res) => {
+  const { employeeEmail } = req.params;
+
+  try {
+    console.log("Fetching leave data for:", employeeEmail);
+
+    // Case-insensitive search
+    const employee = await EmployeeLeave.findOne({
+      employeeEmail: { $regex: new RegExp(`^${employeeEmail}$`, "i") },
+    });
+
+    if (!employee) {
+      console.log("Employee not found in the database");
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    // Format leave data
+    const formatLeaveData = (leaveField) => {
+      if (!leaveField || leaveField.trim() === "") {
+        return "0"; // Default to 0 for empty fields
+      }
+      if (leaveField.toLowerCase() === "probation") {
+        return "NA"; // Display NA or no data for probation
+      }
+      return leaveField; // Return the original value if it doesn't match the above cases
+    };
+
+    const leaveData = {
+      sickLeave: formatLeaveData(employee.sickLeave),
+      paidLeave: formatLeaveData(employee.paidLeave),
+      restrictedHoliday: formatLeaveData(employee.restrictedHoliday),
+      menstrualLeave: formatLeaveData(employee.menstrualLeave),
+    };
+
+    res.status(200).json({ leaveData });
+  } catch (error) {
+    console.error("Error fetching leave data:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.post("/update-data", async (req, res) => {
+  const { row, column, value, employeeEmail } = req.body;
+
+  try {
+    console.log("Updating data for:", { row, column, value, employeeEmail });
+
+    // Find the employee by email
+    const employee = await EmployeeLeave.findOne({
+      employeeEmail: { $regex: new RegExp(`^${employeeEmail}$`, "i") },
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    // Update the specific field based on column (customize this logic as needed)
+    if (column === "sickLeave") employee.sickLeave = value;
+    if (column === "paidLeave") employee.paidLeave = value;
+    if (column === "restrictedHoliday") employee.restrictedHoliday = value;
+    if (column === "menstrualLeave") employee.menstrualLeave = value;
+
+    await employee.save();
+
+    res.status(200).json({ message: "Data updated successfully" });
+  } catch (error) {
+    console.error("Error updating data:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+module.exports = router;
