@@ -39,15 +39,25 @@ const interventionDataSchema = new mongoose.Schema(
     interventionIssues: {
       type: String,
       trim: true,
+      required: [true, "Please enter the issue"],
     },
     interventionIssueBrief: {
       type: String,
       trim: true,
+      required: [true, "Please enter a brief description of the issue"],
     },
     interventionAction: {
       type: String,
       trim: true,
       default: "Not Solved",
+    },
+    department: {
+      type: String,
+      trim: true,
+    },
+    suggestedActionable: {
+      type: String,
+      trim: true,
     },
     facilitatorNumber: {
       type: String,
@@ -68,6 +78,7 @@ const interventionDataSchema = new mongoose.Schema(
     category: {
       type: String,
       trim: true,
+      required: [true, "Please select a Category"],
     },
   },
   { timestamps: true }

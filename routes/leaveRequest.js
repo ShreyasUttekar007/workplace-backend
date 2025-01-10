@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+require("dotenv").config();
 const Leave = require("../models/LeaveRequest");
 const { roles } = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
@@ -9,34 +10,6 @@ const EmployeeLeave = require("../models/EmployeeData");
 router.use(authenticateUser);
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-
-// router.post("/leave", async (req, res) => {
-//   try {
-//     const momData = req.body;
-
-//     // Validate if req.user exists
-//     if (!req.user || !req.user._id) {
-//       return res.status(403).json({ error: "Unauthorized user" });
-//     }
-
-//     // Validate if userId exists in momData
-//     if (!momData.userId) {
-//       return res.status(400).json({ error: "Missing userId in the request body" });
-//     }
-
-//     // Check if userId matches the logged-in user's _id
-//     if (momData.userId.toString() !== req.user._id.toString()) {
-//       return res.status(403).json({ error: "Forbidden - Unauthorized user" });
-//     }
-
-//     // Create new leave request
-//     const newLeave = await Leave.create(momData);
-//     res.status(201).json(newLeave);
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// });
 
 router.post("/leave", async (req, res) => {
   try {
@@ -71,7 +44,11 @@ router.post("/leave", async (req, res) => {
     };
 
     const msg = {
-      to: [momData.receiverEmail, "uttekarshreyas007@gmail.com", "stc.portal@showtimeconsulting.in"], // Send to both receiver and HR
+      to: [
+        momData.receiverEmail,
+        "uttekarshreyas007@gmail.com",
+        "stc.portal@showtimeconsulting.in",
+      ], // Send to both receiver and HR
       from: "stc.portal@showtimeconsulting.in",
       cc: momData.email, // CC the sender's email
       subject: `Leave Request - ${momData.reasonForLeave} :: ${momData.name} :: ${newLeave.leaveCode}`, // Updated subject
@@ -310,12 +287,10 @@ router.put("/update-leave-status/:id", async (req, res) => {
     leaveRequest.leaveStatus = leaveStatus;
     const updatedData = await leaveRequest.save();
 
-    res
-      .status(200)
-      .json({
-        message: "Leave status updated and balance deducted",
-        updatedData,
-      });
+    res.status(200).json({
+      message: "Leave status updated and balance deducted",
+      updatedData,
+    });
   } catch (error) {
     console.error("Error updating leave status:", error);
     res.status(500).json({ error: "Internal server error" });
