@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const EmployeeLeave = require("./EmployeeData"); 
 
 const LeaveRequestSchema = new Schema(
   {
@@ -61,11 +62,16 @@ const LeaveRequestSchema = new Schema(
       type: String,
       default: "pending",
     },
+    employeeCode: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
 
-LeaveRequestSchema.pre("save", function (next) {
+// Pre-save middleware
+LeaveRequestSchema.pre("save", async function (next) {
+  // Generate leaveCode if not already set
   if (!this.leaveCode) {
     const randomDigits = Math.floor(100000 + Math.random() * 900000); // Generate 6 random digits
     const randomAlphabet = String.fromCharCode(
@@ -73,8 +79,26 @@ LeaveRequestSchema.pre("save", function (next) {
     ); // Generate a random uppercase letter (A-Z)
     this.leaveCode = `LRC-${randomAlphabet}${randomDigits}`;
   }
+
+  // Fetch the employeeCode from the EmployeeLeave model using the email
+  if (!this.employeeCode) {
+    try {
+      const employee = await EmployeeLeave.findOne({ employeeEmail: this.email });
+      if (employee) {
+        this.employeeCode = employee.employeeCode;
+      } else {
+        return next(
+          new Error("Employee data not found for the provided email.")
+        );
+      }
+    } catch (err) {
+      return next(err);
+    }
+  }
+
   next();
 });
+
 const LeaveRequest = mongoose.model("LeaveRequest", LeaveRequestSchema);
 
 module.exports = LeaveRequest;
