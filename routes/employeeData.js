@@ -75,33 +75,75 @@ router.get("/get-leave-data/:employeeEmail", async (req, res) => {
 });
 
 router.post("/update-data", async (req, res) => {
-  const { row, column, value, employeeEmail } = req.body;
+  const {
+    gender,
+    employeeCode,
+    employeeName,
+    department,
+    role,
+    employeeEmail,
+    sickLeave,
+    paidLeave,
+    restrictedHoliday,
+    menstrualLeave,
+    reportingManager,
+    reportingManagerCode,
+    reportingManagerEmail,
+  } = req.body;
 
   try {
-    console.log("Updating data for:", { row, column, value, employeeEmail });
-
-    // Find the employee by email
-    const employee = await EmployeeLeave.findOne({
-      employeeEmail: { $regex: new RegExp(`^${employeeEmail}$`, "i") },
+    // Check if the employee exists
+    const existingEmployee = await EmployeeLeave.findOne({
+      employeeEmail: { $regex: new RegExp(`^${employeeEmail}$`, "i") }, // Case-insensitive match
     });
 
-    if (!employee) {
-      return res.status(404).json({ message: "Employee not found" });
+    if (existingEmployee) {
+      // Update the existing employee
+      existingEmployee.gender = gender || existingEmployee.gender;
+      existingEmployee.employeeCode = employeeCode || existingEmployee.employeeCode;
+      existingEmployee.employeeName = employeeName || existingEmployee.employeeName;
+      existingEmployee.department = department || existingEmployee.department;
+      existingEmployee.role = role || existingEmployee.role;
+      existingEmployee.sickLeave = sickLeave || existingEmployee.sickLeave;
+      existingEmployee.paidLeave = paidLeave || existingEmployee.paidLeave;
+      existingEmployee.restrictedHoliday = restrictedHoliday || existingEmployee.restrictedHoliday;
+      existingEmployee.menstrualLeave = menstrualLeave || existingEmployee.menstrualLeave;
+      existingEmployee.reportingManager = reportingManager || existingEmployee.reportingManager;
+      existingEmployee.reportingManagerCode =
+        reportingManagerCode || existingEmployee.reportingManagerCode;
+      existingEmployee.reportingManagerEmail =
+        reportingManagerEmail || existingEmployee.reportingManagerEmail;
+
+      await existingEmployee.save();
+
+      return res.status(200).json({ message: "Employee data updated successfully" });
     }
 
-    // Update the specific field based on column (customize this logic as needed)
-    if (column === "sickLeave") employee.sickLeave = value;
-    if (column === "paidLeave") employee.paidLeave = value;
-    if (column === "restrictedHoliday") employee.restrictedHoliday = value;
-    if (column === "menstrualLeave") employee.menstrualLeave = value;
+    // If employee does not exist, create a new entry
+    const newEmployee = new EmployeeLeave({
+      gender,
+      employeeCode,
+      employeeName,
+      department,
+      role,
+      employeeEmail,
+      sickLeave,
+      paidLeave,
+      restrictedHoliday,
+      menstrualLeave,
+      reportingManager,
+      reportingManagerCode,
+      reportingManagerEmail,
+    });
 
-    await employee.save();
+    await newEmployee.save();
 
-    res.status(200).json({ message: "Data updated successfully" });
+    res.status(201).json({ message: "New employee entry created successfully" });
   } catch (error) {
-    console.error("Error updating data:", error);
+    console.error("Error updating/creating data:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 module.exports = router;

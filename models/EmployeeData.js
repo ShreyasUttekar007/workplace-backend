@@ -5,9 +5,7 @@ const employeeLeaveSchema = new mongoose.Schema(
     gender: {
       type: String,
     },
-    employeeCode: {
-      type: String,
-    },
+    employeeEmail: { type: String, unique: true },
     employeeName: {
       type: String,
     },
