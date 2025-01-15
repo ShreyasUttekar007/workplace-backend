@@ -106,9 +106,6 @@ ${momData.name}`,
 
 router.get("/leave-requests", authenticateUser, async (req, res) => {
   try {
-    const userRoles = req.user?.roles || []; // Extract roles from the authenticated user
-    console.log("User Roles: ", userRoles);
-
     const userId = req.user?._id || req.user?.userId; // Use `_id` or `userId` based on your user schema
     console.log("User Id: ", userId);
 
@@ -116,16 +113,8 @@ router.get("/leave-requests", authenticateUser, async (req, res) => {
       return res.status(400).json({ error: "User ID is required." });
     }
 
-    let leaveRequests;
-
-    // Check if the user is an admin
-    if (userRoles.includes("admin")) {
-      // Fetch all leave requests if the user has the admin role
-      leaveRequests = await Leave.find().sort({ createdAt: -1 });
-    } else {
-      // Fetch leave requests for the specific user
-      leaveRequests = await Leave.find({ userId }).sort({ createdAt: -1 });
-    }
+    // Fetch leave requests for the specific user
+    const leaveRequests = await Leave.find({ userId }).sort({ createdAt: -1 });
 
     res.status(200).json({ leaveRequests });
   } catch (error) {
@@ -133,6 +122,7 @@ router.get("/leave-requests", authenticateUser, async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
 
 router.get("/leave-requests-emails", authenticateUser, async (req, res) => {
   try {
