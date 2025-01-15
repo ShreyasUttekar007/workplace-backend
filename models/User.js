@@ -362,6 +362,7 @@ const UserSchema = new Schema(
             "admin",
             "mod",
             "user",
+            "state",
             "Eastern Vidarbha",
             "Konkan",
             "Marathwada",

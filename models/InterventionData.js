@@ -27,10 +27,6 @@ const interventionDataSchema = new mongoose.Schema(
       required: [true, "Please select a Ward"],
       trim: true,
     },
-    boothType: {
-      type: String,
-      trim: true,
-    },
     interventionType: {
       type: String,
       required: [true, "Please select a Intervention Type"],
