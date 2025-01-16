@@ -15,7 +15,7 @@ const employeeLeaveSchema = new mongoose.Schema(
     role: {
       type: String,
     },
-    employeeEmail: {
+    employeeCode: {
       type: String,
     },
     sickLeave: {

@@ -35,8 +35,6 @@ router.post("/leave", async (req, res) => {
     // Create new leave request
     const newLeave = await Leave.create(momData);
 
-    // Prepare the email message
-    // Prepare the email message
     const documentUrl = momData.document || "No document provided"; // Use the document URL or a fallback message
     const formatDate = (dateString) => {
       const date = new Date(dateString);
