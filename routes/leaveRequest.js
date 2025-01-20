@@ -226,7 +226,6 @@ router.put("/update-leave-status/:id", async (req, res) => {
       Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
     // Deduct the leave balance based on leave type
-    // Deduct the leave balance based on leave type
     switch (leaveRequest.leaveType) {
       case "sickLeave":
         if (employee.sickLeave < leaveDays) {
@@ -264,6 +263,15 @@ router.put("/update-leave-status/:id", async (req, res) => {
         employee.menstrualLeave -= leaveDays;
         break;
 
+      case "halfDayLeave":
+        if (employee.paidLeave < 0.5) {
+          return res
+            .status(400)
+            .json({ error: "Insufficient paid leave balance for half day" });
+        }
+        employee.paidLeave -= 0.5;
+        break;
+
       default:
         return res.status(400).json({ error: "Invalid leave type" });
     }
@@ -284,6 +292,7 @@ router.put("/update-leave-status/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 router.delete("/delete-mom/:momId", async (req, res) => {
   try {
