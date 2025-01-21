@@ -12,76 +12,80 @@ const authenticateUser = require("../middleware/authenticateUser");
 
 const router = express.Router();
 
-router.use(authenticateUser);
+router.get(
+  "/get-intervention-data/:userId",
+  authenticateUser,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const userRoles = req.user?.roles || [];
 
-router.get("/get-intervention-data/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const userRoles = req.user?.roles || [];
+      // Check if user is admin
+      if (userRoles.includes("admin")) {
+        const moms = await InterventionData.find().populate("userId");
+        return res.status(200).json(moms);
+      }
 
-    // Check if user is admin
-    if (userRoles.includes("admin")) {
-      const moms = await InterventionData.find().populate("userId");
+      // Check if the requested userId matches the authenticated user's id
+      if (userId !== req.user._id.toString()) {
+        return res.status(403).json({ error: "Forbidden - Unauthorized user" });
+      }
+
+      // Fetch user info
+      const user = await User.findById(req.user._id).select("roles");
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Filter roles for each category
+      const userZoneRoles = userRoles.filter((role) =>
+        zoneRoles.includes(role)
+      );
+      const userDistrictRoles = userRoles.filter((role) =>
+        districtRoles.includes(role)
+      );
+      const userConstituencyRoles = userRoles.filter((role) =>
+        assemblyConstituencies.includes(role)
+      );
+      const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
+        parliamentaryConstituencyRoles.includes(role)
+      );
+
+      console.log("Roles Breakdown:");
+      console.log("Zone Roles: ", userZoneRoles);
+      console.log("District Roles: ", userDistrictRoles);
+      console.log("Constituency Roles: ", userConstituencyRoles);
+      console.log(
+        "Parliamentary Constituency Roles: ",
+        userParliamentaryConstituencyRoles
+      );
+
+      // Construct the query dynamically
+      const query = {};
+      if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
+      if (userDistrictRoles.length > 0)
+        query.district = { $in: userDistrictRoles };
+      if (userConstituencyRoles.length > 0)
+        query.constituency = { $in: userConstituencyRoles };
+      if (userParliamentaryConstituencyRoles.length > 0) {
+        query.pc = { $in: userParliamentaryConstituencyRoles };
+      }
+
+      // If no roles match, only fetch MOMs for the specific user
+      if (Object.keys(query).length === 0) {
+        query.userId = userId;
+      }
+      console.log("Constructed Query: ", query);
+
+      // Fetch data from DB
+      const moms = await InterventionData.find(query).populate("userId");
       return res.status(200).json(moms);
+    } catch (error) {
+      console.error("Error fetching MOM data: ", error);
+      return res.status(500).json({ error: error.message });
     }
-
-    // Check if the requested userId matches the authenticated user's id
-    if (userId !== req.user._id.toString()) {
-      return res.status(403).json({ error: "Forbidden - Unauthorized user" });
-    }
-
-    // Fetch user info
-    const user = await User.findById(req.user._id).select("roles");
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Filter roles for each category
-    const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
-    const userDistrictRoles = userRoles.filter((role) =>
-      districtRoles.includes(role)
-    );
-    const userConstituencyRoles = userRoles.filter((role) =>
-      assemblyConstituencies.includes(role)
-    );
-    const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
-      parliamentaryConstituencyRoles.includes(role)
-    );
-
-    console.log("Roles Breakdown:");
-    console.log("Zone Roles: ", userZoneRoles);
-    console.log("District Roles: ", userDistrictRoles);
-    console.log("Constituency Roles: ", userConstituencyRoles);
-    console.log(
-      "Parliamentary Constituency Roles: ",
-      userParliamentaryConstituencyRoles
-    );
-
-    // Construct the query dynamically
-    const query = {};
-    if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
-    if (userDistrictRoles.length > 0)
-      query.district = { $in: userDistrictRoles };
-    if (userConstituencyRoles.length > 0)
-      query.constituency = { $in: userConstituencyRoles };
-    if (userParliamentaryConstituencyRoles.length > 0) {
-      query.pc = { $in: userParliamentaryConstituencyRoles };
-    }
-
-    // If no roles match, only fetch MOMs for the specific user
-    if (Object.keys(query).length === 0) {
-      query.userId = userId;
-    }
-    console.log("Constructed Query: ", query);
-
-    // Fetch data from DB
-    const moms = await InterventionData.find(query).populate("userId");
-    return res.status(200).json(moms);
-  } catch (error) {
-    console.error("Error fetching MOM data: ", error);
-    return res.status(500).json({ error: error.message });
   }
-});
+);
 
 router.get("/get-wards/:constituency", async (req, res) => {
   const { constituency } = req.params;
@@ -105,7 +109,7 @@ router.get("/get-wards/:constituency", async (req, res) => {
   }
 });
 
-router.get("/wards", async (req, res) => {
+router.get("/wards", authenticateUser, async (req, res) => {
   try {
     const { constituency } = req.query;
 
@@ -164,29 +168,33 @@ router.get(
   }
 );
 
-router.put("/update-intervention-action/:id", async (req, res) => {
-  const { id } = req.params;
-  const { interventionAction } = req.body;
+router.put(
+  "/update-intervention-action/:id",
+  authenticateUser,
+  async (req, res) => {
+    const { id } = req.params;
+    const { interventionAction } = req.body;
 
-  try {
-    // Update the BoothData record by ID
-    const updatedData = await InterventionData.findByIdAndUpdate(
-      id,
-      { interventionAction }, // Only update the interventionAction
-      { new: true } // Return the updated document
-    );
+    try {
+      // Update the BoothData record by ID
+      const updatedData = await InterventionData.findByIdAndUpdate(
+        id,
+        { interventionAction }, // Only update the interventionAction
+        { new: true } // Return the updated document
+      );
 
-    if (!updatedData) {
-      return res.status(404).json({ error: "No record found with this ID" });
+      if (!updatedData) {
+        return res.status(404).json({ error: "No record found with this ID" });
+      }
+
+      res.json(updatedData);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
-
-    res.json(updatedData);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
-router.get("/interventions/counts", async (req, res) => {
+router.get("/interventions/counts", authenticateUser, async (req, res) => {
   try {
     const { constituency, ward, pc, interventionType, interventionAction } =
       req.query;
