@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
-const AcData = require("../models/BmcMapping");
+const BmcMapping = require("../models/BmcMapping");
 
 const interventionDataSchema = new mongoose.Schema(
   {
@@ -29,7 +29,7 @@ const interventionDataSchema = new mongoose.Schema(
     },
     interventionType: {
       type: String,
-      required: [true, "Please select a Intervention Type"],
+      required: [true, "Please select an Intervention Type"],
       trim: true,
     },
     interventionIssues: {
@@ -80,22 +80,22 @@ const interventionDataSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Pre-save hook to fetch and set zone and boothType from AcData
+// Pre-save hook to fetch and set `zone` and `pc` from `BmcMapping`
 interventionDataSchema.pre("save", async function (next) {
   try {
-    // Fetch data from AcData
-    const acData = await AcData.findOne({ booth: this.booth });
-    if (acData) {
-      if (acData.zone) this.zone = acData.zone; // Set zone
-      if (acData.pc) this.pc = acData.pc; // Set boothType
+    // Fetch data from BmcMapping based on constituency
+    const bmcData = await BmcMapping.findOne({ constituency: this.constituency });
+    if (bmcData) {
+      this.zone = bmcData.zone; // Set `zone` from BmcMapping
+      this.pc = bmcData.pc; // Set `pc` from BmcMapping
     }
 
     next();
   } catch (error) {
-    next(error);
+    next(error); // Pass error to the next middleware
   }
 });
 
-const InterventionData = mongoose.model("interventionData", interventionDataSchema);
+const InterventionData = mongoose.model("InterventionData", interventionDataSchema);
 
 module.exports = InterventionData;
