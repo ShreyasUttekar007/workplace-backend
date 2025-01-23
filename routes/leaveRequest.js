@@ -45,7 +45,7 @@ router.post("/leave", async (req, res) => {
       to: [
         momData.receiverEmail,
         "stc.portal@showtimeconsulting.in",
-        "saumitra@showtimeconsulting.in",
+        // "saumitra@showtimeconsulting.in",
       ], // Send to both receiver and HR
       from: "stc.portal@showtimeconsulting.in",
       cc: momData.email, // CC the sender's email
@@ -228,47 +228,49 @@ router.put("/update-leave-status/:id", async (req, res) => {
     // Deduct the leave balance based on leave type
     switch (leaveRequest.leaveType) {
       case "sickLeave":
-        if (employee.sickLeave < leaveDays) {
-          return res
-            .status(400)
-            .json({ error: "Insufficient sick leave balance" });
+        if (employee.sickLeave >= leaveDays) {
+          // Deduct fully from sick leave
+          employee.sickLeave -= leaveDays;
+        } else {
+          // Calculate the deficit and use paid leave
+          const remainingDays = leaveDays - employee.sickLeave;
+          employee.sickLeave = 0;
+          if (employee.paidLeave >= remainingDays) {
+            employee.paidLeave -= remainingDays;
+          } else {
+            employee.paidLeave -= remainingDays; // This will go negative if insufficient
+          }
         }
-        employee.sickLeave -= leaveDays;
         break;
 
       case "paidLeave":
-        if (employee.paidLeave < leaveDays) {
-          return res
-            .status(400)
-            .json({ error: "Insufficient paid leave balance" });
+        if (employee.paidLeave >= leaveDays) {
+          // Deduct fully from paid leave
+          employee.paidLeave -= leaveDays;
+        } else {
+          // Calculate the deficit and use sick leave
+          const remainingDays = leaveDays - employee.paidLeave;
+          employee.paidLeave = 0;
+          if (employee.sickLeave >= remainingDays) {
+            employee.sickLeave -= remainingDays;
+          } else {
+            employee.sickLeave -= remainingDays; // This will go negative if insufficient
+          }
         }
-        employee.paidLeave -= leaveDays;
         break;
 
       case "restrictedHoliday":
-        if (employee.restrictedHoliday < leaveDays) {
-          return res
-            .status(400)
-            .json({ error: "Insufficient restricted holiday balance" });
-        }
+        // Deduct restricted holiday leave
         employee.restrictedHoliday -= leaveDays;
         break;
 
       case "menstrualLeave":
-        if (employee.menstrualLeave < leaveDays) {
-          return res
-            .status(400)
-            .json({ error: "Insufficient menstrual leave balance" });
-        }
+        // Deduct menstrual leave
         employee.menstrualLeave -= leaveDays;
         break;
 
       case "halfDayLeave":
-        if (employee.paidLeave < 0.5) {
-          return res
-            .status(400)
-            .json({ error: "Insufficient paid leave balance for half day" });
-        }
+        // Deduct half-day leave
         employee.paidLeave -= 0.5;
         break;
 
