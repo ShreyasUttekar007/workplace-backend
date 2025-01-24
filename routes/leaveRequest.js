@@ -45,7 +45,7 @@ router.post("/leave", async (req, res) => {
       to: [
         momData.receiverEmail,
         "stc.portal@showtimeconsulting.in",
-        // "saumitra@showtimeconsulting.in",
+        "saumitra@showtimeconsulting.in",
       ], // Send to both receiver and HR
       from: "stc.portal@showtimeconsulting.in",
       cc: momData.email, // CC the sender's email
