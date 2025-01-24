@@ -145,5 +145,16 @@ router.post("/update-data", async (req, res) => {
   }
 });
 
+router.get("/get-updated-data", async (req, res) => {
+  try {
+    const employees = await EmployeeLeave.find(); // Fetch all employees from DB
+    res.status(200).json({ data: employees });
+  } catch (error) {
+    console.error("Error fetching updated data:", error);
+    res.status(500).json({ message: "Error fetching data from the database" });
+  }
+});
+
+
 
 module.exports = router;
