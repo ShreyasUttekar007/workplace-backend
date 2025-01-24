@@ -196,33 +196,51 @@ router.put(
 
 router.get("/interventions/counts", authenticateUser, async (req, res) => {
   try {
-    const { constituency, ward, pc, interventionType, interventionAction } =
-      req.query;
+    const { constituency, ward, pc, interventionType, interventionAction } = req.query;
     const userRoles = req.user?.roles || [];
 
-    // Check if the user is admin (for fetching all data)
+    console.log("Query Parameters:", {
+      constituency,
+      ward,
+      pc,
+      interventionType,
+      interventionAction,
+    });
+    console.log("User Roles:", userRoles);
+
+    // Check if the user is admin
     if (userRoles.includes("admin")) {
-      const result = await handleAdminCounts(); // Wait for result here
+      console.log("Admin detected: Applying filters.");
+      const matchFilter = {};
+
+      // Apply filters dynamically for admin
+      if (constituency) matchFilter.constituency = constituency;
+      if (ward) matchFilter.ward = ward;
+      if (pc) matchFilter.pc = pc.replace(/\+/g, " "); // Decode '+' as space
+      if (interventionType) matchFilter.interventionType = interventionType;
+      if (interventionAction) matchFilter.interventionAction = interventionAction;
+
+      console.log("Admin Match Filter:", JSON.stringify(matchFilter, null, 2));
+      const result = await handleAdminCounts(matchFilter);
+      console.log("Admin Result:", JSON.stringify(result, null, 2));
       return res.json(result);
     }
 
-    // Filter roles for each category
+    // Filter roles for other users
     const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
-    const userDistrictRoles = userRoles.filter((role) =>
-      districtRoles.includes(role)
-    );
+    const userDistrictRoles = userRoles.filter((role) => districtRoles.includes(role));
     const userConstituencyRoles = userRoles.filter((role) =>
       assemblyConstituencies.includes(role)
     );
     const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
       parliamentaryConstituencyRoles.includes(role)
     );
-    // Construct the query dynamically based on roles
+
+    // Construct the match filter dynamically
     const matchFilter = {};
 
     if (userZoneRoles.length > 0) matchFilter.zone = { $in: userZoneRoles };
-    if (userDistrictRoles.length > 0)
-      matchFilter.district = { $in: userDistrictRoles };
+    if (userDistrictRoles.length > 0) matchFilter.district = { $in: userDistrictRoles };
     if (userConstituencyRoles.length > 0)
       matchFilter.constituency = { $in: userConstituencyRoles };
     if (userParliamentaryConstituencyRoles.length > 0)
@@ -231,124 +249,29 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
     // Further filter by query parameters if provided
     if (constituency) matchFilter.constituency = constituency;
     if (ward) matchFilter.ward = ward;
-    if (pc) matchFilter.pc = pc;
+    if (pc) matchFilter.pc = pc.replace(/\+/g, " ");
     if (interventionType) matchFilter.interventionType = interventionType;
     if (interventionAction) matchFilter.interventionAction = interventionAction;
 
-    console.log("Match Filter:", matchFilter);
+    console.log("Final Match Filter for non-admin:", JSON.stringify(matchFilter, null, 2));
 
-    // Perform the aggregation to get counts
-    const counts = await InterventionData.aggregate([
-      {
-        $match: matchFilter, // Apply the match filter dynamically
-      },
-      {
-        $facet: {
-          totalInterventions: [{ $count: "count" }],
-          typeCounts: [
-            {
-              $match: {
-                interventionType: {
-                  $in: [
-                    "Political",
-                    "Party / Organizational",
-                    "Government / Administrative",
-                    "Alliance",
-                    "Leader Activation",
-                  ],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: "$interventionType",
-                count: { $sum: 1 },
-              },
-            },
-          ],
-          actionCounts: [
-            {
-              $match: {
-                interventionAction: {
-                  $in: ["Solved", "Not Solved", "Action Taken"],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: "$interventionAction",
-                count: { $sum: 1 },
-              },
-            },
-          ],
-        },
-      },
-      {
-        $project: {
-          totalInterventions: {
-            $arrayElemAt: ["$totalInterventions.count", 0],
-          },
-          typeCounts: {
-            $arrayToObject: {
-              $map: {
-                input: "$typeCounts",
-                as: "type",
-                in: { k: "$$type._id", v: "$$type.count" },
-              },
-            },
-          },
-          actionCounts: {
-            $arrayToObject: {
-              $map: {
-                input: "$actionCounts",
-                as: "action",
-                in: { k: "$$action._id", v: "$$action.count" },
-              },
-            },
-          },
-        },
-      },
-    ]);
+    // Perform aggregation
+    const counts = await getInterventionCounts(matchFilter);
 
-    // If no interventions exist, return zero counts
-    const result = counts[0] || {
-      totalInterventions: 0,
-      typeCounts: {},
-      actionCounts: {},
-    };
-
-    // Fill missing intervention types and actions with 0 counts
-    const allTypes = [
-      "Political",
-      "Party / Organizational",
-      "Government / Administrative",
-      "Alliance",
-      "Leader Activation",
-    ];
-    const allActions = ["Solved", "Not Solved", "Action Taken"];
-
-    allTypes.forEach((type) => {
-      if (!result.typeCounts[type]) {
-        result.typeCounts[type] = 0;
-      }
-    });
-
-    allActions.forEach((action) => {
-      if (!result.actionCounts[action]) {
-        result.actionCounts[action] = 0;
-      }
-    });
-
-    res.json(result);
+    console.log("Final Processed Result:", JSON.stringify(counts, null, 2));
+    res.json(counts);
   } catch (error) {
     console.error("Error fetching intervention counts:", error);
     res.status(500).send("Internal Server Error");
   }
 });
 
-// Updated handleAdminCounts function:
-async function handleAdminCounts() {
+// Helper function for admin counts
+async function handleAdminCounts(matchFilter) {
   const counts = await InterventionData.aggregate([
+    {
+      $match: matchFilter, // Apply admin-specific filters
+    },
     {
       $facet: {
         totalInterventions: [{ $count: "count" }],
@@ -417,7 +340,89 @@ async function handleAdminCounts() {
     },
   ]);
 
-  const result = counts[0] || {
+  return formatCounts(counts[0]);
+}
+
+// Helper function for non-admin counts
+async function getInterventionCounts(matchFilter) {
+  const counts = await InterventionData.aggregate([
+    {
+      $match: matchFilter, // Apply user-specific filters
+    },
+    {
+      $facet: {
+        totalInterventions: [{ $count: "count" }],
+        typeCounts: [
+          {
+            $match: {
+              interventionType: {
+                $in: [
+                  "Political",
+                  "Party / Organizational",
+                  "Government / Administrative",
+                  "Alliance",
+                  "Leader Activation",
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: "$interventionType",
+              count: { $sum: 1 },
+            },
+          },
+        ],
+        actionCounts: [
+          {
+            $match: {
+              interventionAction: {
+                $in: ["Solved", "Not Solved", "Action Taken"],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: "$interventionAction",
+              count: { $sum: 1 },
+            },
+          },
+        ],
+      },
+    },
+    {
+      $project: {
+        totalInterventions: {
+          $arrayElemAt: ["$totalInterventions.count", 0],
+        },
+        typeCounts: {
+          $arrayToObject: {
+            $map: {
+              input: "$typeCounts",
+              as: "type",
+              in: { k: "$$type._id", v: "$$type.count" },
+            },
+          },
+        },
+        actionCounts: {
+          $arrayToObject: {
+            $map: {
+              input: "$actionCounts",
+              as: "action",
+              in: { k: "$$action._id", v: "$$action.count" },
+            },
+          },
+        },
+      },
+    },
+  ]);
+
+  return formatCounts(counts[0]);
+}
+
+// Helper function to format counts
+function formatCounts(counts) {
+  const result = counts || {
     totalInterventions: 0,
     typeCounts: {},
     actionCounts: {},
@@ -444,7 +449,7 @@ async function handleAdminCounts() {
     }
   });
 
-  return result; // Return the result here, instead of trying to send the response directly
+  return result;
 }
 
 module.exports = router;
