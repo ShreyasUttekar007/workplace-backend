@@ -243,11 +243,7 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
       const endDate = new Date(toDate); // toDate is '2025-01-14T00:00:00.000Z'
 
       // Adjust endDate to cover the entire day in UTC
-      endDate.setUTCHours(23, 59, 59, 999); // Set the time to the end of the day in UTC
-
-      console.log("Start Date:", startDate);
-      console.log("End Date:", endDate);
-
+      endDate.setUTCHours(23, 59, 59, 999);
       matchFilter.createdAt = { $gte: startDate, $lte: endDate };
 
       if (startDate <= endDate) {
