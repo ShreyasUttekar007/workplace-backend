@@ -184,26 +184,22 @@ router.put("/update-intervention-action/:id", async (req, res) => {
   }
 });
 
-router.get(
-  "/get-interventions/:id",
-  async (req, res) => {
-    const { id } = req.params;
+router.get("/get-interventions/:id", async (req, res) => {
+  const { id } = req.params;
 
-    try {
-      // Fetch the InterventionData document by ID
-      const interventionData = await InterventionData.findById(id);
+  try {
+    // Fetch the InterventionData document by ID
+    const interventionData = await InterventionData.findById(id);
 
-      if (!interventionData) {
-        return res.status(404).json({ error: "No record found with this ID" });
-      }
-
-      res.json(interventionData);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+    if (!interventionData) {
+      return res.status(404).json({ error: "No record found with this ID" });
     }
-  }
-);
 
+    res.json(interventionData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 router.put("/update-intervention-data/:id", async (req, res) => {
   const { id } = req.params;
@@ -227,42 +223,56 @@ router.put("/update-intervention-data/:id", async (req, res) => {
   }
 });
 
-
 router.get("/interventions/counts", authenticateUser, async (req, res) => {
   try {
-    const { constituency, ward, pc, interventionType, interventionAction } =
-    req.query;
+    const {
+      constituency,
+      ward,
+      pc,
+      interventionType,
+      interventionAction,
+      fromDate,
+      toDate,
+    } = req.query;
     const userRoles = req.user?.roles || [];
-    
-    // Check if the user is admin
-    if (userRoles.includes("admin")) {
-      const matchFilter = {};
-      
-      // Apply filters dynamically for admin
-      if (constituency) matchFilter.constituency = constituency;
-      if (ward) matchFilter.ward = ward;
-      if (pc) matchFilter.pc = pc.replace(/\+/g, " "); // Decode '+' as space
-      if (interventionType) matchFilter.interventionType = interventionType;
-      if (interventionAction)
-        matchFilter.interventionAction = interventionAction;
-      const result = await handleAdminCounts(matchFilter);
-      return res.json(result);
+
+    // Start of date filter debug
+    let matchFilter = {};
+    if (fromDate && toDate) {
+      const startDate = new Date(fromDate); // fromDate is '2025-01-14T00:00:00.000Z'
+      const endDate = new Date(toDate); // toDate is '2025-01-14T00:00:00.000Z'
+
+      // Adjust endDate to cover the entire day in UTC
+      endDate.setUTCHours(23, 59, 59, 999); // Set the time to the end of the day in UTC
+
+      console.log("Start Date:", startDate);
+      console.log("End Date:", endDate);
+
+      matchFilter.createdAt = { $gte: startDate, $lte: endDate };
+
+      if (startDate <= endDate) {
+        matchFilter.createdAt = { $gte: startDate, $lte: endDate };
+      }
     }
-    
-    // Filter roles for other users
+    console.log("Match Filter:", matchFilter); // Debugging the match filter
+
+    // Apply additional filters based on query parameters
+    if (constituency) matchFilter.constituency = constituency;
+    if (ward) matchFilter.ward = ward;
+    if (pc) matchFilter.pc = pc.replace(/\+/g, " "); // Decode '+' as space
+    if (interventionType) matchFilter.interventionType = interventionType;
+    if (interventionAction) matchFilter.interventionAction = interventionAction;
+
     const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
     const userDistrictRoles = userRoles.filter((role) =>
       districtRoles.includes(role)
     );
     const userConstituencyRoles = userRoles.filter((role) =>
       assemblyConstituencies.includes(role)
-  );
+    );
     const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
       parliamentaryConstituencyRoles.includes(role)
     );
-    
-    // Construct the match filter dynamically
-    const matchFilter = {};
 
     if (userZoneRoles.length > 0) matchFilter.zone = { $in: userZoneRoles };
     if (userDistrictRoles.length > 0)
@@ -272,15 +282,10 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
     if (userParliamentaryConstituencyRoles.length > 0)
       matchFilter.pc = { $in: userParliamentaryConstituencyRoles };
 
-    // Further filter by query parameters if provided
-    if (constituency) matchFilter.constituency = constituency;
-    if (ward) matchFilter.ward = ward;
-    if (pc) matchFilter.pc = pc.replace(/\+/g, " ");
-    if (interventionType) matchFilter.interventionType = interventionType;
-    if (interventionAction) matchFilter.interventionAction = interventionAction;
-    
     // Perform aggregation
     const counts = await getInterventionCounts(matchFilter);
+    console.log("Counts:", counts); // Debugging the returned counts
+
     res.json(counts);
   } catch (error) {
     console.error("Error fetching intervention counts:", error);
@@ -361,7 +366,7 @@ async function handleAdminCounts(matchFilter) {
       },
     },
   ]);
-  
+
   return formatCounts(counts[0]);
 }
 
@@ -438,7 +443,7 @@ async function getInterventionCounts(matchFilter) {
       },
     },
   ]);
-  
+
   return formatCounts(counts[0]);
 }
 
@@ -449,7 +454,7 @@ function formatCounts(counts) {
     typeCounts: {},
     actionCounts: {},
   };
-  
+
   const allTypes = [
     "Political",
     "Party / Organizational",
@@ -458,7 +463,7 @@ function formatCounts(counts) {
     "Leader Activation",
   ];
   const allActions = ["Solved", "Not Solved", "Action Taken", "Reviewed"];
-  
+
   allTypes.forEach((type) => {
     if (!result.typeCounts[type]) {
       result.typeCounts[type] = 0;
@@ -470,7 +475,7 @@ function formatCounts(counts) {
       result.actionCounts[action] = 0;
     }
   });
-  
+
   return result;
 }
 
