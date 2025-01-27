@@ -31,7 +31,6 @@ router.get("/get-report", async (req, res) => {
 router.get("/get-report-by-id/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
-    console.log("momId::: ", momId);
     const mom = await Report.findById(momId).populate("userId");
 
     if (!mom) {
@@ -108,7 +107,6 @@ router.get("/get-report/:userId", async (req, res) => {
     const userZoneRoles = (userRoles || []).filter((role) =>
       zoneRoles.includes(role)
     );
-    console.log("userZoneRoles::: ", userZoneRoles);
 
     // Define constituency roles
     const assemblyConstituencies = [
@@ -404,7 +402,6 @@ router.get("/get-report/:userId", async (req, res) => {
     const userConstituencyRoles = (userRoles || []).filter((role) =>
       assemblyConstituencies.includes(role)
     );
-    console.log("userConstituencyRoles::: ", userConstituencyRoles);
 
     if (userZoneRoles.length > 0) {
       if (userConstituencyRoles.length > 0) {

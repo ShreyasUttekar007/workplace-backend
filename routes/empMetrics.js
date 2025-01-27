@@ -16,27 +16,20 @@ router.post("/", async (req, res) => {
 
 router.get("/emps/:empId", async (req, res) => {
   try {
-    console.log("Searching for empId:", req.params.empId); // Log the empId
 
     // Step 1: Fetch the Employee Biometric data by empId
     const empBiometric = await EmpBiometrics.findOne({ empId: req.params.empId }).populate("userId", "email");
     
     if (!empBiometric) {
-      console.log("Employee Biometric not found for empId:", req.params.empId); // Log if not found
       return res.status(404).json({ error: "Employee Biometric not found" });
     }
-
-    console.log("Found Employee Biometric:", empBiometric);
 
     // Step 2: Use empId to fetch corresponding Employee data
     const empData = await EmpData.findOne({ empId: req.params.empId });
 
     if (!empData) {
-      console.log("Employee Data not found for empId:", req.params.empId); // Log if not found
       return res.status(404).json({ error: "Employee Data not found" });
     }
-
-    console.log("Found Employee Data:", empData);
 
     // Step 3: Return the combined data
     const result = {

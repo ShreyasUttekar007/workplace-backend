@@ -29,7 +29,7 @@ const EmployeeBiometricSchema = new Schema(
 EmployeeBiometricSchema.pre("save", async function () {
   try {
     await this.populate("userId", "email").execPopulate();
-    console.log("User Email:", this.userId.email);
+    
   } catch (error) {
     console.error("Error during population:", error);
   }

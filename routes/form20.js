@@ -31,7 +31,6 @@ router.get("/get-report", async (req, res) => {
 router.get("/get-report-by-id/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
-    console.log("momId::: ", momId);
     const mom = await Report.findById(momId).populate("userId");
 
     if (!mom) {

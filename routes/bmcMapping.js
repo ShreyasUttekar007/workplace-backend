@@ -22,7 +22,9 @@ router.get(
 
       // Check if user is admin
       if (userRoles.includes("admin")) {
-        const moms = await InterventionData.find().populate("userId");
+        const moms = await InterventionData.find()
+          .populate("userId")
+          .sort({ createdAt: -1 });
         return res.status(200).json(moms);
       }
 
@@ -51,15 +53,6 @@ router.get(
         parliamentaryConstituencyRoles.includes(role)
       );
 
-      console.log("Roles Breakdown:");
-      console.log("Zone Roles: ", userZoneRoles);
-      console.log("District Roles: ", userDistrictRoles);
-      console.log("Constituency Roles: ", userConstituencyRoles);
-      console.log(
-        "Parliamentary Constituency Roles: ",
-        userParliamentaryConstituencyRoles
-      );
-
       // Construct the query dynamically
       const query = {};
       if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
@@ -75,10 +68,11 @@ router.get(
       if (Object.keys(query).length === 0) {
         query.userId = userId;
       }
-      console.log("Constructed Query: ", query);
 
       // Fetch data from DB
-      const moms = await InterventionData.find(query).populate("userId");
+      const moms = await InterventionData.find(query)
+        .populate("userId")
+        .sort({ createdAt: -1 });
       return res.status(200).json(moms);
     } catch (error) {
       console.error("Error fetching MOM data: ", error);
@@ -168,79 +162,111 @@ router.get(
   }
 );
 
-router.put(
-  "/update-intervention-action/:id",
-  authenticateUser,
+router.put("/update-intervention-action/:id", async (req, res) => {
+  const { id } = req.params;
+  const { interventionAction } = req.body;
+
+  try {
+    // Update the BoothData record by ID
+    const updatedData = await InterventionData.findByIdAndUpdate(
+      id,
+      { interventionAction }, // Only update the interventionAction
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedData) {
+      return res.status(404).json({ error: "No record found with this ID" });
+    }
+
+    res.json(updatedData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get(
+  "/get-interventions/:id",
   async (req, res) => {
     const { id } = req.params;
-    const { interventionAction } = req.body;
 
     try {
-      // Update the BoothData record by ID
-      const updatedData = await InterventionData.findByIdAndUpdate(
-        id,
-        { interventionAction }, // Only update the interventionAction
-        { new: true } // Return the updated document
-      );
+      // Fetch the InterventionData document by ID
+      const interventionData = await InterventionData.findById(id);
 
-      if (!updatedData) {
+      if (!interventionData) {
         return res.status(404).json({ error: "No record found with this ID" });
       }
 
-      res.json(updatedData);
+      res.json(interventionData);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   }
 );
 
+
+router.put("/update-intervention-data/:id", async (req, res) => {
+  const { id } = req.params;
+  const updateFields = req.body; // Expecting the full object for updating
+
+  try {
+    // Update the entire record by ID
+    const updatedData = await InterventionData.findByIdAndUpdate(
+      id,
+      updateFields, // Update with the provided fields
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedData) {
+      return res.status(404).json({ error: "No record found with this ID" });
+    }
+
+    res.json(updatedData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 router.get("/interventions/counts", authenticateUser, async (req, res) => {
   try {
-    const { constituency, ward, pc, interventionType, interventionAction } = req.query;
+    const { constituency, ward, pc, interventionType, interventionAction } =
+    req.query;
     const userRoles = req.user?.roles || [];
-
-    console.log("Query Parameters:", {
-      constituency,
-      ward,
-      pc,
-      interventionType,
-      interventionAction,
-    });
-    console.log("User Roles:", userRoles);
-
+    
     // Check if the user is admin
     if (userRoles.includes("admin")) {
-      console.log("Admin detected: Applying filters.");
       const matchFilter = {};
-
+      
       // Apply filters dynamically for admin
       if (constituency) matchFilter.constituency = constituency;
       if (ward) matchFilter.ward = ward;
       if (pc) matchFilter.pc = pc.replace(/\+/g, " "); // Decode '+' as space
       if (interventionType) matchFilter.interventionType = interventionType;
-      if (interventionAction) matchFilter.interventionAction = interventionAction;
-
-      console.log("Admin Match Filter:", JSON.stringify(matchFilter, null, 2));
+      if (interventionAction)
+        matchFilter.interventionAction = interventionAction;
       const result = await handleAdminCounts(matchFilter);
-      console.log("Admin Result:", JSON.stringify(result, null, 2));
       return res.json(result);
     }
-
+    
     // Filter roles for other users
     const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
-    const userDistrictRoles = userRoles.filter((role) => districtRoles.includes(role));
+    const userDistrictRoles = userRoles.filter((role) =>
+      districtRoles.includes(role)
+    );
     const userConstituencyRoles = userRoles.filter((role) =>
       assemblyConstituencies.includes(role)
-    );
+  );
     const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
       parliamentaryConstituencyRoles.includes(role)
     );
-
+    
     // Construct the match filter dynamically
     const matchFilter = {};
 
     if (userZoneRoles.length > 0) matchFilter.zone = { $in: userZoneRoles };
-    if (userDistrictRoles.length > 0) matchFilter.district = { $in: userDistrictRoles };
+    if (userDistrictRoles.length > 0)
+      matchFilter.district = { $in: userDistrictRoles };
     if (userConstituencyRoles.length > 0)
       matchFilter.constituency = { $in: userConstituencyRoles };
     if (userParliamentaryConstituencyRoles.length > 0)
@@ -252,13 +278,9 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
     if (pc) matchFilter.pc = pc.replace(/\+/g, " ");
     if (interventionType) matchFilter.interventionType = interventionType;
     if (interventionAction) matchFilter.interventionAction = interventionAction;
-
-    console.log("Final Match Filter for non-admin:", JSON.stringify(matchFilter, null, 2));
-
+    
     // Perform aggregation
     const counts = await getInterventionCounts(matchFilter);
-
-    console.log("Final Processed Result:", JSON.stringify(counts, null, 2));
     res.json(counts);
   } catch (error) {
     console.error("Error fetching intervention counts:", error);
@@ -300,7 +322,7 @@ async function handleAdminCounts(matchFilter) {
           {
             $match: {
               interventionAction: {
-                $in: ["Solved", "Not Solved", "Action Taken"],
+                $in: ["Solved", "Not Solved", "Action Taken", "Reviewed"],
               },
             },
           },
@@ -339,7 +361,7 @@ async function handleAdminCounts(matchFilter) {
       },
     },
   ]);
-
+  
   return formatCounts(counts[0]);
 }
 
@@ -377,7 +399,7 @@ async function getInterventionCounts(matchFilter) {
           {
             $match: {
               interventionAction: {
-                $in: ["Solved", "Not Solved", "Action Taken"],
+                $in: ["Solved", "Not Solved", "Action Taken", "Reviewed"],
               },
             },
           },
@@ -416,7 +438,7 @@ async function getInterventionCounts(matchFilter) {
       },
     },
   ]);
-
+  
   return formatCounts(counts[0]);
 }
 
@@ -427,7 +449,7 @@ function formatCounts(counts) {
     typeCounts: {},
     actionCounts: {},
   };
-
+  
   const allTypes = [
     "Political",
     "Party / Organizational",
@@ -435,8 +457,8 @@ function formatCounts(counts) {
     "Alliance",
     "Leader Activation",
   ];
-  const allActions = ["Solved", "Not Solved", "Action Taken"];
-
+  const allActions = ["Solved", "Not Solved", "Action Taken", "Reviewed"];
+  
   allTypes.forEach((type) => {
     if (!result.typeCounts[type]) {
       result.typeCounts[type] = 0;
@@ -448,8 +470,25 @@ function formatCounts(counts) {
       result.actionCounts[action] = 0;
     }
   });
-
+  
   return result;
 }
+
+router.delete("/delete-intervention-data/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Find and delete the document by ID
+    const deletedData = await InterventionData.findByIdAndDelete(id);
+
+    if (!deletedData) {
+      return res.status(404).json({ error: "No record found with this ID" });
+    }
+
+    res.json({ message: "Record deleted successfully", data: deletedData });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;

@@ -38,7 +38,7 @@ const Form17Schema = new Schema(
 Form17Schema.pre("save", async function () {
   try {
     await this.populate("userId", "email");
-    console.log("User Email:", this.userId.email);
+    
   } catch (error) {
     console.error("Error during population:", error);
   }

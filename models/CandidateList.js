@@ -51,7 +51,7 @@ const CandidateListSchema = new Schema(
 CandidateListSchema.pre("save", async function () {
   try {
     await this.populate("userId", "email").execPopulate();
-    console.log("User Email:", this.userId.email);
+    
   } catch (error) {
     console.error("Error during population:", error);
   }

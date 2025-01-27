@@ -33,7 +33,6 @@ router.get("/get-report", async (req, res) => {
 router.get("/get-report-by-id/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
-    console.log("momId::: ", momId);
     const mom = await Report.findById(momId).populate("userId");
 
     if (!mom) {
@@ -109,12 +108,6 @@ router.get("/get-report/:userId", async (req, res) => {
       parliamentaryConstituencyRoles.includes(role)
     );
 
-    console.log("Roles Breakdown:");
-    console.log("Zone Roles: ", userZoneRoles);
-    console.log("District Roles: ", userDistrictRoles);
-    console.log("Constituency Roles: ", userConstituencyRoles);
-    console.log("Parliamentary Constituency Roles: ", userParliamentaryConstituencyRoles);
-
     // Construct the query dynamically
     const query = {};
     if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
@@ -128,7 +121,6 @@ router.get("/get-report/:userId", async (req, res) => {
     if (Object.keys(query).length === 0) {
       query.userId = userId;
     }
-    console.log("Constructed Query: ", query);
 
     // Fetch data from DB
     const moms = await Report.find(query).populate("userId");

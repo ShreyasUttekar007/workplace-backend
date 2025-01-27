@@ -9,7 +9,6 @@ router.get("/get-manager-email/:employeeEmail", async (req, res) => {
   const { employeeEmail } = req.params;
 
   try {
-    console.log("Searching for employeeEmail:", employeeEmail);
 
     // Case-insensitive search
     const employee = await EmployeeLeave.findOne({
@@ -17,7 +16,6 @@ router.get("/get-manager-email/:employeeEmail", async (req, res) => {
     });
 
     if (!employee) {
-      console.log("Employee not found in the database");
       return res.status(404).json({ message: "Employee not found" });
     }
 
@@ -37,7 +35,6 @@ router.get("/get-leave-data/:employeeEmail", async (req, res) => {
   const { employeeEmail } = req.params;
 
   try {
-    console.log("Fetching leave data for:", employeeEmail);
 
     // Case-insensitive search
     const employee = await EmployeeLeave.findOne({
@@ -45,7 +42,6 @@ router.get("/get-leave-data/:employeeEmail", async (req, res) => {
     });
 
     if (!employee) {
-      console.log("Employee not found in the database");
       return res.status(404).json({ message: "Employee not found" });
     }
 
