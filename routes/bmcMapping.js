@@ -250,7 +250,6 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
         matchFilter.createdAt = { $gte: startDate, $lte: endDate };
       }
     }
-    console.log("Match Filter:", matchFilter); // Debugging the match filter
 
     // Apply additional filters based on query parameters
     if (constituency) matchFilter.constituency = constituency;
