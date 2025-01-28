@@ -1,6 +1,5 @@
 const express = require("express");
-const BmcMapping = require("../models/BmcMapping");
-const InterventionData = require("../models/InterventionData");
+const StateInterventionData = require("../models/StateInterventionData");
 const User = require("../models/User");
 const {
   zoneRoles,
@@ -22,7 +21,7 @@ router.get(
 
       // Check if user is admin
       if (userRoles.includes("admin")) {
-        const moms = await InterventionData.find()
+        const moms = await StateInterventionData.find()
           .populate("userId")
           .sort({ createdAt: -1 });
         return res.status(200).json(moms);
@@ -61,7 +60,7 @@ router.get(
       if (userConstituencyRoles.length > 0)
         query.constituency = { $in: userConstituencyRoles };
       if (userParliamentaryConstituencyRoles.length > 0) {
-        query.pc = { $in: userParliamentaryConstituencyRoles };
+        query.zone = { $in: userParliamentaryConstituencyRoles };
       }
 
       // If no roles match, only fetch MOMs for the specific user
@@ -70,7 +69,7 @@ router.get(
       }
 
       // Fetch data from DB
-      const moms = await InterventionData.find(query)
+      const moms = await StateInterventionData.find(query)
         .populate("userId")
         .sort({ createdAt: -1 });
       return res.status(200).json(moms);
@@ -81,57 +80,9 @@ router.get(
   }
 );
 
-router.get("/get-wards/:constituency", async (req, res) => {
-  const { constituency } = req.params;
-
-  try {
-    // Fetch distinct ward numbers for the given constituency
-    const wards = await BmcMapping.find({ constituency }).distinct(
-      "wardNumber"
-    );
-
-    if (wards.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No wards found for the selected constituency" });
-    }
-
-    res.status(200).json({ wards });
-  } catch (error) {
-    console.error("Error fetching wards:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-router.get("/wards", authenticateUser, async (req, res) => {
-  try {
-    const { constituency } = req.query;
-
-    if (!constituency) {
-      return res.status(400).json({ message: "Constituency is required." });
-    }
-
-    // Find the wards for the given constituency using InterventionData model
-    const wardsData = await InterventionData.distinct("ward", { constituency });
-
-    // If no wards are found, return a 404 response
-    if (wardsData.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No wards found for the given constituency." });
-    }
-
-    // Respond with the list of wards
-    res.status(200).json(wardsData);
-  } catch (error) {
-    console.error("Error fetching wards:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
 router.post("/create-intervention", async (req, res) => {
   try {
-    const booth = new InterventionData(req.body);
+    const booth = new StateInterventionData(req.body);
     const savedBooth = await booth.save();
     res.status(201).json(savedBooth);
   } catch (error) {
@@ -146,7 +97,9 @@ router.get(
       const { constituency } = req.params;
 
       // Find all records for the given constituency
-      const constituencyData = await InterventionData.find({ constituency });
+      const constituencyData = await StateInterventionData.find({
+        constituency,
+      });
 
       if (!constituencyData || constituencyData.length === 0) {
         return res
@@ -168,7 +121,7 @@ router.put("/update-intervention-action/:id", async (req, res) => {
 
   try {
     // Update the BoothData record by ID
-    const updatedData = await InterventionData.findByIdAndUpdate(
+    const updatedData = await StateInterventionData.findByIdAndUpdate(
       id,
       { interventionAction }, // Only update the interventionAction
       { new: true } // Return the updated document
@@ -188,8 +141,8 @@ router.get("/get-interventions/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Fetch the InterventionData document by ID
-    const interventionData = await InterventionData.findById(id);
+    // Fetch the StateInterventionData document by ID
+    const interventionData = await StateInterventionData.findById(id);
 
     if (!interventionData) {
       return res.status(404).json({ error: "No record found with this ID" });
@@ -207,7 +160,7 @@ router.put("/update-intervention-data/:id", async (req, res) => {
 
   try {
     // Update the entire record by ID
-    const updatedData = await InterventionData.findByIdAndUpdate(
+    const updatedData = await StateInterventionData.findByIdAndUpdate(
       id,
       updateFields, // Update with the provided fields
       { new: true } // Return the updated document
@@ -227,8 +180,8 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
   try {
     const {
       constituency,
-      ward,
-      pc,
+      district,
+      zone,
       interventionType,
       interventionAction,
       fromDate,
@@ -253,8 +206,8 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
 
     // Apply additional filters based on query parameters
     if (constituency) matchFilter.constituency = constituency;
-    if (ward) matchFilter.ward = ward;
-    if (pc) matchFilter.pc = pc.replace(/\+/g, " "); // Decode '+' as space
+    if (district) matchFilter.district = district;
+    if (zone) matchFilter.zone = zone.replace(/\+/g, " "); // Decode '+' as space
     if (interventionType) matchFilter.interventionType = interventionType;
     if (interventionAction) matchFilter.interventionAction = interventionAction;
 
@@ -275,7 +228,7 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
     if (userConstituencyRoles.length > 0)
       matchFilter.constituency = { $in: userConstituencyRoles };
     if (userParliamentaryConstituencyRoles.length > 0)
-      matchFilter.pc = { $in: userParliamentaryConstituencyRoles };
+      matchFilter.zone = { $in: userParliamentaryConstituencyRoles };
 
     // Perform aggregation
     const counts = await getInterventionCounts(matchFilter);
@@ -289,7 +242,7 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
 
 // Helper function for admin counts
 async function handleAdminCounts(matchFilter) {
-  const counts = await InterventionData.aggregate([
+  const counts = await StateInterventionData.aggregate([
     {
       $match: matchFilter, // Apply admin-specific filters
     },
@@ -366,7 +319,7 @@ async function handleAdminCounts(matchFilter) {
 
 // Helper function for non-admin counts
 async function getInterventionCounts(matchFilter) {
-  const counts = await InterventionData.aggregate([
+  const counts = await StateInterventionData.aggregate([
     {
       $match: matchFilter, // Apply user-specific filters
     },
@@ -478,7 +431,7 @@ router.delete("/delete-intervention-data/:id", async (req, res) => {
 
   try {
     // Find and delete the document by ID
-    const deletedData = await InterventionData.findByIdAndDelete(id);
+    const deletedData = await StateInterventionData.findByIdAndDelete(id);
 
     if (!deletedData) {
       return res.status(404).json({ error: "No record found with this ID" });
