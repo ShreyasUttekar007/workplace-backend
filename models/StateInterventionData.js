@@ -91,6 +91,9 @@ stateInterventionDataSchema.pre("save", async function (next) {
   }
 });
 
-const StateInterventionData = mongoose.model("StateInterventionData", stateInterventionDataSchema);
+const StateInterventionData = mongoose.model(
+  "StateInterventionData",
+  stateInterventionDataSchema
+);
 
 module.exports = StateInterventionData;

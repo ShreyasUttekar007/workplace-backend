@@ -9,6 +9,9 @@ const employeeLeaveSchema = new mongoose.Schema(
     employeeName: {
       type: String,
     },
+    employeePhoneNumber: {
+      type: String,
+    },
     department: {
       type: String,
     },
@@ -37,6 +40,24 @@ const employeeLeaveSchema = new mongoose.Schema(
       type: String,
     },
     reportingManagerEmail: {
+      type: String,
+    },
+    reportingManager2: {
+      type: String,
+    },
+    reportingManagerCode2: {
+      type: String,
+    },
+    reportingManagerEmail2: {
+      type: String,
+    },
+    regularizationLeave: {
+      type: String,
+    },
+    compensationLeave: {
+      type: String,
+    },
+    onOfficeDuty: {
       type: String,
     },
   },

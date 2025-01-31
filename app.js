@@ -24,6 +24,7 @@ const employeeRoutes = require("./routes/employeeData");
 const empRoutes = require("./routes/empMetrics");
 const bmcMappingRoutes = require("./routes/bmcMapping");
 const stateMappingRoutes = require("./routes/stateMapping");
+const travelRoutes = require("./routes/travelRecords");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
@@ -102,6 +103,8 @@ app.use("/api/leavedata", leaveRoutes);
 app.use("/api/employeedata", employeeRoutes);
 app.use("/api/bmc", bmcMappingRoutes);
 app.use("/api/state", stateMappingRoutes);
+app.use("/api/travel", travelRoutes);
+
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "client/build")));
