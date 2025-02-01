@@ -33,7 +33,7 @@ router.post("/travel-record", async (req, res) => {
 
     const msg = {
       to: [
-        // "ops.maharashtra@showtimeconsulting.in",
+        "ops.maharashtra@showtimeconsulting.in",
         "stc.portal@showtimeconsulting.in",
       ],
       from: "stc.portal@showtimeconsulting.in",
