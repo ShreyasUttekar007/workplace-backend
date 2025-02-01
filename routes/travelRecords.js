@@ -5,53 +5,108 @@ const TravelRecord = require("../models/TravelRecord");
 const { roles } = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
 const sgMail = require("@sendgrid/mail");
-const EmployeeLeave = require("../models/EmployeeData");
 
 router.use(authenticateUser);
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 router.post("/travel-record", async (req, res) => {
-    try {
-      const momData = req.body;
-  
-      // Validate if req.user exists
-      if (!req.user || !req.user._id) {
-        return res.status(403).json({ error: "Unauthorized user" });
-      }
-  
-      // Validate if userId exists in momData
-      if (!momData.userId) {
-        return res
-          .status(400)
-          .json({ error: "Missing userId in the request body" });
-      }
-  
-      // Check if userId matches the logged-in user's _id
-      if (momData.userId.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ error: "Forbidden - Unauthorized user" });
-      }
-  
-      // Create new travel request
-      const newTravel = await TravelRecord.create(momData);
-  
-      res.status(201).json(newTravel);
-    } catch (error) {
-      console.error("Error processing travel request:", error);
-      res.status(500).json({ error: error.message });
+  try {
+    const travelData = req.body;
+
+    // Validate user authorization
+    if (!req.user || !req.user._id) {
+      return res.status(403).json({ error: "Unauthorized user" });
     }
-  });
+
+    // Ensure userId matches the logged-in user's ID
+    if (travelData.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: "Forbidden - Unauthorized user" });
+    }
+
+    // Create new travel request
+    const newTravelRequest = await TravelRecord.create(travelData);
+
+    // Email notification setup
+    const formatDate = (dateString) =>
+      dateString ? new Date(dateString).toLocaleDateString("en-GB") : "NA";
+
+    const msg = {
+      to: [
+        // "ops.maharashtra@showtimeconsulting.in",
+        "stc.portal@showtimeconsulting.in",
+      ],
+      from: "stc.portal@showtimeconsulting.in",
+      cc: travelData.email, // CC the sender
+      subject: `Travel Request - ${travelData.purposeOfTravel} :: ${newTravelRequest.name} :: ${newTravelRequest.travelCode}`,
+      text: `Dear Admin Team,
+
+I hope this message finds you well. I am requesting travel/accommodation arrangements for an upcoming event.
+
+- **Travel Date:** ${formatDate(travelData.travelDate)}
+- **From:** ${travelData.fromLocation} 
+- **To:** ${travelData.toLocation} 
+- **Event Location:** ${travelData.eventLocation} 
+- **Purpose of Travel:** ${travelData.purposeOfTravel}
+- **Accommodation:** ${formatDate(
+        travelData.accommodationStartDate
+      )} to ${formatDate(travelData.accommodationEndDate)}
+- **Remarks:** ${travelData.remarks || "N/A"}
+
+Thank you for processing this request.
+
+Best regards,  
+${travelData.name}`,
+      html: `
+      <p>Dear Admin Team,</p>
+      <p>I hope this message finds you well. I am requesting travel/accommodation arrangements for an upcoming event.</p>
+      <ul>
+        <li><strong>Travel Date:</strong> ${formatDate(
+          travelData.travelDate
+        )}</li>
+        <li><strong>From:</strong> ${travelData.fromLocation}</li>
+        <li><strong>To:</strong> ${travelData.toLocation}</li>
+        <li><strong>Event Location:</strong> ${travelData.eventLocation}</li>
+        <li><strong>Purpose of Travel:</strong> ${
+          travelData.purposeOfTravel
+        }</li>
+        <li><strong>Accommodation:</strong> ${formatDate(
+          travelData.accommodationStartDate
+        )} to ${formatDate(travelData.accommodationEndDate)}</li>
+        <li><strong>Remarks:</strong> ${travelData.remarks || "N/A"}</li>
+      </ul>
+      <p>Thank you for processing this request.</p>
+      <p>Best regards,<br />${newTravelRequest.name}</p>
+      `,
+    };
+
+    // Send email
+    try {
+      await sgMail.send(msg);
+      console.log("Email sent successfully!");
+    } catch (error) {
+      console.error("Error sending email:", error);
+    }
+
+    res.status(201).json(newTravelRequest);
+  } catch (error) {
+    console.error("Error processing travel request:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 router.get("/travel-requests", authenticateUser, async (req, res) => {
   try {
-    const userId = req.user?._id || req.user?.userId; 
+    const userId = req.user?._id || req.user?.userId;
 
     if (!userId) {
       return res.status(400).json({ error: "User ID is required." });
     }
 
     // Fetch travel requests for the specific user
-    const leaveRequests = await TravelRecord.find({ userId }).sort({ createdAt: -1 });
+    const leaveRequests = await TravelRecord.find({ userId }).sort({
+      createdAt: -1,
+    });
 
     res.status(200).json({ leaveRequests });
   } catch (error) {
@@ -59,7 +114,6 @@ router.get("/travel-requests", authenticateUser, async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
-
 
 router.get("/travel-requests-emails", authenticateUser, async (req, res) => {
   try {
@@ -80,7 +134,9 @@ router.get("/travel-requests-emails", authenticateUser, async (req, res) => {
       leaveRequests = await TravelRecord.find().sort({ createdAt: -1 });
     } else {
       // Fetch travel requests where the user's email is mentioned in receiverEmail
-      leaveRequests = await TravelRecord.find({ receiverEmail: userEmail }).sort({
+      leaveRequests = await TravelRecord.find({
+        receiverEmail: userEmail,
+      }).sort({
         createdAt: -1,
       });
     }
