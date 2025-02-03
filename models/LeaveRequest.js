@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
-const EmployeeLeave = require("./EmployeeData"); 
+const EmployeeLeave = require("./EmployeeData");
 
 const LeaveRequestSchema = new Schema(
   {
@@ -55,6 +55,10 @@ const LeaveRequestSchema = new Schema(
       type: String,
       unique: true,
     },
+    employeeCode: {
+      type: String,
+      unique: true,
+    },
     document: {
       type: String,
     },
@@ -62,8 +66,22 @@ const LeaveRequestSchema = new Schema(
       type: String,
       default: "pending",
     },
-    employeeCode: {
+    department: { type: String, trim: true },
+    reportingManagerEmail: {
       type: String,
+      trim: true,
+    },
+    reportingManager: {
+      type: String,
+      trim: true,
+    },
+    reportingManagerEmail2: {
+      type: String,
+      trim: true,
+    },
+    reportingManager2: {
+      type: String,
+      trim: true,
     },
   },
   { timestamps: true }
@@ -83,9 +101,12 @@ LeaveRequestSchema.pre("save", async function (next) {
   // Fetch the employeeCode from the EmployeeLeave model using the email
   if (!this.employeeCode) {
     try {
-      const employee = await EmployeeLeave.findOne({ employeeEmail: this.email });
+      const employee = await EmployeeLeave.findOne({
+        employeeEmail: this.email,
+      });
       if (employee) {
         this.employeeCode = employee.employeeCode;
+        this.department = employee.department;
       } else {
         return next(
           new Error("Employee data not found for the provided email.")

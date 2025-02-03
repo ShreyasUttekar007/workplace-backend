@@ -55,10 +55,10 @@ const employeeLeaveSchema = new mongoose.Schema(
       type: String,
     },
     compensationLeave: {
-      type: String,
+      type: Number,  // Change from String to Number
     },
     onOfficeDuty: {
-      type: String,
+      type: Number,  // Change from String to Number
     },
   },
   {

@@ -46,6 +46,7 @@ router.post("/leave", async (req, res) => {
         momData.receiverEmail,
         "stc.portal@showtimeconsulting.in",
         "saumitra@showtimeconsulting.in",
+        momData.reportingManagerEmail2,
       ], // Send to both receiver and HR
       from: "stc.portal@showtimeconsulting.in",
       cc: momData.email, // CC the sender's email
@@ -122,7 +123,6 @@ router.get("/leave-requests", authenticateUser, async (req, res) => {
   }
 });
 
-
 router.get("/leave-requests-emails", authenticateUser, async (req, res) => {
   try {
     const userRoles = req.user?.roles || []; // Extract roles from the authenticated user
@@ -153,6 +153,34 @@ router.get("/leave-requests-emails", authenticateUser, async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
+router.get(
+  "/leave-requests-reporting-manager",
+  authenticateUser,
+  async (req, res) => {
+    try {
+      const userEmail = req.user?.email; // Extract the authenticated user's email
+      console.log("User Email: ", userEmail);
+
+      if (!userEmail) {
+        return res.status(400).json({ error: "User email is required." });
+      }
+
+      // Fetch leave requests where the user's email is mentioned in reportingManagerEmail
+      const leaveRequests = await Leave.find({
+        receiverEmail: userEmail,
+      }).sort({ createdAt: -1 });
+
+      res.status(200).json({ leaveRequests });
+    } catch (error) {
+      console.error(
+        "Error fetching leave requests by reporting manager email:",
+        error
+      );
+      res.status(500).json({ error: "Internal server error." });
+    }
+  }
+);
 
 router.get("/get-leave", async (req, res) => {
   try {
@@ -225,53 +253,51 @@ router.put("/update-leave-status/:id", async (req, res) => {
     const leaveDays =
       Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
-    // Deduct the leave balance based on leave type
+    // Deduct/Add leave balance based on leave type
     switch (leaveRequest.leaveType) {
       case "sickLeave":
         if (employee.sickLeave >= leaveDays) {
-          // Deduct fully from sick leave
           employee.sickLeave -= leaveDays;
         } else {
-          // Calculate the deficit and use paid leave
           const remainingDays = leaveDays - employee.sickLeave;
           employee.sickLeave = 0;
-          if (employee.paidLeave >= remainingDays) {
-            employee.paidLeave -= remainingDays;
-          } else {
-            employee.paidLeave -= remainingDays; // This will go negative if insufficient
-          }
+          employee.paidLeave = Math.max(employee.paidLeave - remainingDays, 0);
         }
         break;
 
       case "paidLeave":
         if (employee.paidLeave >= leaveDays) {
-          // Deduct fully from paid leave
           employee.paidLeave -= leaveDays;
         } else {
-          // Calculate the deficit and use sick leave
           const remainingDays = leaveDays - employee.paidLeave;
           employee.paidLeave = 0;
-          if (employee.sickLeave >= remainingDays) {
-            employee.sickLeave -= remainingDays;
-          } else {
-            employee.sickLeave -= remainingDays; // This will go negative if insufficient
-          }
+          employee.sickLeave = Math.max(employee.sickLeave - remainingDays, 0);
         }
         break;
 
       case "restrictedHoliday":
-        // Deduct restricted holiday leave
         employee.restrictedHoliday -= leaveDays;
         break;
 
       case "menstrualLeave":
-        // Deduct menstrual leave
         employee.menstrualLeave -= leaveDays;
         break;
 
       case "halfDayLeave":
-        // Deduct half-day leave
         employee.paidLeave -= 0.5;
+        break;
+
+      case "regularizationLeave":
+        employee.regularizationLeave -= leaveDays; // Can go negative
+        break;
+
+      case "compensationLeave":
+        employee.compensationLeave =
+          Number(employee.compensationLeave || 0) + leaveDays;
+        break;
+
+      case "onOfficeDuty":
+        employee.onOfficeDuty = Number(employee.onOfficeDuty || 0) + leaveDays;
         break;
 
       default:
@@ -286,7 +312,7 @@ router.put("/update-leave-status/:id", async (req, res) => {
     const updatedData = await leaveRequest.save();
 
     res.status(200).json({
-      message: "Leave status updated and balance deducted",
+      message: "Leave status updated and balance adjusted",
       updatedData,
     });
   } catch (error) {
@@ -294,7 +320,6 @@ router.put("/update-leave-status/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 
 router.delete("/delete-mom/:momId", async (req, res) => {
   try {

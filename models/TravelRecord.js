@@ -13,7 +13,7 @@ const TravelRequestSchema = new Schema(
       type: String,
       unique: true,
     },
-    department: { type: String, required: true, trim: true },
+    department: { type: String, trim: true },
     requestType: { type: String, required: true, trim: true },
     travelDate: { type: Date, required: true, trim: true },
     fromLocation: { type: String, required: true, trim: true },
@@ -77,6 +77,7 @@ TravelRequestSchema.pre("save", async function (next) {
       this.employeeCode = employee.employeeCode;
       this.name = employee.employeeName;
       this.employeePhoneNumber = employee.employeePhoneNumber;
+      this.department = employee.department;
     } else {
       return next(
         new Error(`Employee data not found for email: ${this.email}`)
