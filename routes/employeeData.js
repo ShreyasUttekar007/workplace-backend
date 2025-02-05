@@ -108,53 +108,52 @@ router.post("/update-data", async (req, res) => {
   } = req.body;
 
   try {
+    // Validate required fields
+    if (!employeeEmail) {
+      return res.status(400).json({ message: "Missing required field: employeeEmail" });
+    }
+
+    // Check if MongoDB is connected
+    if (!EmployeeLeave) {
+      return res.status(500).json({ message: "Database connection issue" });
+    }
+
+    console.log("Received request data:", req.body); // Debugging log
+
     // Check if the employee exists
     const existingEmployee = await EmployeeLeave.findOne({
-      employeeEmail: { $regex: new RegExp(`^${employeeEmail}$`, "i") }, // Case-insensitive match
+      employeeEmail: { $regex: new RegExp(`^${employeeEmail}$`, "i") },
     });
 
     if (existingEmployee) {
-      // Update the existing employee
+      console.log(`Updating existing employee: ${employeeEmail}`);
+
       existingEmployee.gender = gender || existingEmployee.gender;
-      existingEmployee.employeeCode =
-        employeeCode || existingEmployee.employeeCode;
-      existingEmployee.employeeName =
-        employeeName || existingEmployee.employeeName;
+      existingEmployee.employeeCode = employeeCode || existingEmployee.employeeCode;
+      existingEmployee.employeeName = employeeName || existingEmployee.employeeName;
       existingEmployee.department = department || existingEmployee.department;
       existingEmployee.role = role || existingEmployee.role;
       existingEmployee.sickLeave = sickLeave || existingEmployee.sickLeave;
       existingEmployee.paidLeave = paidLeave || existingEmployee.paidLeave;
-      existingEmployee.restrictedHoliday =
-        restrictedHoliday || existingEmployee.restrictedHoliday;
-      existingEmployee.menstrualLeave =
-        menstrualLeave || existingEmployee.menstrualLeave;
-      existingEmployee.reportingManager =
-        reportingManager || existingEmployee.reportingManager;
-      existingEmployee.reportingManagerCode =
-        reportingManagerCode || existingEmployee.reportingManagerCode;
-      existingEmployee.reportingManagerEmail =
-        reportingManagerEmail || existingEmployee.reportingManagerEmail;
-      existingEmployee.reportingManager2 =
-        reportingManager || existingEmployee.reportingManager2;
-      existingEmployee.reportingManagerCode2 =
-        reportingManagerCode || existingEmployee.reportingManagerCode2;
-      existingEmployee.reportingManagerEmail2 =
-        reportingManagerEmail || existingEmployee.reportingManagerEmail2;
-      existingEmployee.onOfficeDuty =
-        reportingManagerEmail || existingEmployee.onOfficeDuty;
-      existingEmployee.compensationLeave =
-        reportingManagerEmail || existingEmployee.compensationLeave;
-      existingEmployee.regularizationLeave =
-        reportingManagerEmail || existingEmployee.regularizationLeave;
+      existingEmployee.restrictedHoliday = restrictedHoliday || existingEmployee.restrictedHoliday;
+      existingEmployee.menstrualLeave = menstrualLeave || existingEmployee.menstrualLeave;
+      existingEmployee.reportingManager = reportingManager || existingEmployee.reportingManager;
+      existingEmployee.reportingManagerCode = reportingManagerCode || existingEmployee.reportingManagerCode;
+      existingEmployee.reportingManagerEmail = reportingManagerEmail || existingEmployee.reportingManagerEmail;
+      existingEmployee.reportingManager2 = reportingManager2 || existingEmployee.reportingManager2;
+      existingEmployee.reportingManagerCode2 = reportingManagerCode2 || existingEmployee.reportingManagerCode2;
+      existingEmployee.reportingManagerEmail2 = reportingManagerEmail2 || existingEmployee.reportingManagerEmail2;
+      existingEmployee.onOfficeDuty = onOfficeDuty || existingEmployee.onOfficeDuty;
+      existingEmployee.compensationLeave = compensationLeave || existingEmployee.compensationLeave;
+      existingEmployee.regularizationLeave = regularizationLeave || existingEmployee.regularizationLeave;
 
       await existingEmployee.save();
-
-      return res
-        .status(200)
-        .json({ message: "Employee data updated successfully" });
+      return res.status(200).json({ message: "Employee data updated successfully" });
     }
 
     // If employee does not exist, create a new entry
+    console.log(`Creating new employee: ${employeeEmail}`);
+
     const newEmployee = new EmployeeLeave({
       gender,
       employeeCode,
@@ -178,13 +177,11 @@ router.post("/update-data", async (req, res) => {
     });
 
     await newEmployee.save();
+    res.status(201).json({ message: "New employee entry created successfully" });
 
-    res
-      .status(201)
-      .json({ message: "New employee entry created successfully" });
   } catch (error) {
-    console.error("Error updating/creating data:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error updating/creating data:", error.message, error.stack);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
