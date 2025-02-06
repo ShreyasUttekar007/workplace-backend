@@ -32,16 +32,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = process.env.CORS_ORIGIN.split(",").map((o) =>
-        o.trim()
-      );
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: process.env.CORS_ORIGIN,
     credentials: true,
   })
 );
@@ -113,6 +104,7 @@ app.use("/api/employeedata", employeeRoutes);
 app.use("/api/bmc", bmcMappingRoutes);
 app.use("/api/state", stateMappingRoutes);
 app.use("/api/travel", travelRoutes);
+
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "client/build")));
