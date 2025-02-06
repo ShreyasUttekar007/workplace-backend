@@ -255,23 +255,37 @@ router.put("/update-leave-status/:id", async (req, res) => {
 
     // Deduct/Add leave balance based on leave type
     switch (leaveRequest.leaveType) {
-      case "sickLeave":
-        if (employee.sickLeave >= leaveDays) {
-          employee.sickLeave -= leaveDays;
+      case "paidLeave":
+        if (employee.paidLeave >= leaveDays) {
+          employee.paidLeave -= leaveDays; // Deduct directly
         } else {
-          const remainingDays = leaveDays - employee.sickLeave;
-          employee.sickLeave = 0;
-          employee.paidLeave = Math.max(employee.paidLeave - remainingDays, 0);
+          const remainingDays = leaveDays - employee.paidLeave;
+          employee.paidLeave = 0; // Exhaust paid leave
+
+          if (employee.sickLeave >= remainingDays) {
+            employee.sickLeave -= remainingDays; // Deduct from sick leave if possible
+          } else {
+            const extraNeeded = remainingDays - employee.sickLeave;
+            employee.sickLeave = 0; // Exhaust sick leave
+            employee.paidLeave -= extraNeeded; // Go negative on paid leave
+          }
         }
         break;
 
-      case "paidLeave":
-        if (employee.paidLeave >= leaveDays) {
-          employee.paidLeave -= leaveDays;
+      case "sickLeave":
+        if (employee.sickLeave >= leaveDays) {
+          employee.sickLeave -= leaveDays; // Deduct directly
         } else {
-          const remainingDays = leaveDays - employee.paidLeave;
-          employee.paidLeave = 0;
-          employee.sickLeave = Math.max(employee.sickLeave - remainingDays, 0);
+          const remainingDays = leaveDays - employee.sickLeave;
+          employee.sickLeave = 0; // Exhaust sick leave
+
+          if (employee.paidLeave >= remainingDays) {
+            employee.paidLeave -= remainingDays; // Deduct from paid leave if possible
+          } else {
+            const extraNeeded = remainingDays - employee.paidLeave;
+            employee.paidLeave = 0; // Exhaust paid leave
+            employee.sickLeave -= extraNeeded; // Go negative on sick leave
+          }
         }
         break;
 
