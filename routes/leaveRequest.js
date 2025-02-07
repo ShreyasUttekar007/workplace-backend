@@ -127,32 +127,44 @@ router.get("/leave-requests-emails", authenticateUser, async (req, res) => {
   try {
     const userRoles = req.user?.roles || []; // Extract roles from the authenticated user
     const userEmail = req.user?.email; // Extract the authenticated user's email
+    const { startDate, endDate } = req.query; // Get date range from query params
+    
     console.log("User Roles: ", userRoles);
     console.log("User Email: ", userEmail);
+    console.log("Start Date: ", startDate);
+    console.log("End Date: ", endDate);
 
     if (!userEmail) {
       return res.status(400).json({ error: "User email is required." });
     }
+    
+    let filter = {};
 
-    let leaveRequests;
-
-    // Check if the user is an admin
-    if (userRoles.includes("admin")) {
-      // Fetch all leave requests if the user has the admin role
-      leaveRequests = await Leave.find().sort({ createdAt: -1 });
-    } else {
-      // Fetch leave requests where the user's email is mentioned in receiverEmail
-      leaveRequests = await Leave.find({ receiverEmail: userEmail }).sort({
-        createdAt: -1,
-      });
+    if (startDate && endDate) {
+      filter = {
+        $or: [
+          { startDate: { $lte: new Date(endDate) }, endDate: { $gte: new Date(startDate) } },
+        ],
+      };
     }
 
-    res.status(200).json({ leaveRequests });
+    let leaveRequests;
+    
+    if (userRoles.includes("admin")) {
+      leaveRequests = await Leave.find(filter).sort({ createdAt: -1 });
+    } else {
+      leaveRequests = await Leave.find({ receiverEmail: userEmail, ...filter }).sort({ createdAt: -1 });
+    }
+    
+    const leaveCount = leaveRequests.length; // Count of employees on leave
+
+    res.status(200).json({ leaveRequests, leaveCount });
   } catch (error) {
     console.error("Error fetching leave requests by email:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
 
 router.get(
   "/leave-requests-reporting-manager",
