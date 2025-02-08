@@ -29,6 +29,8 @@ const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
 const app = express();
+require("./routes/leaveReportJob"); // Import and execute the cron job
+
 
 app.use(
   cors({
