@@ -157,7 +157,7 @@ const fetchAndSendLeaveReport = async () => {
   }
 };
 
-cron.schedule("00 12 * * *", fetchAndSendLeaveReport, {
+cron.schedule("10 11 * * *", fetchAndSendLeaveReport, {
   timezone: "Asia/Kolkata",
 });
 
