@@ -305,7 +305,8 @@ async function handleAdminCounts(matchFilter) {
                   "Party / Organizational",
                   "Government / Administrative",
                   "Alliance",
-                  "Leader Activation",
+                  "SHS Leader Activation",
+                  "SHS Dispute Resolved",
                 ],
               },
             },
@@ -321,7 +322,14 @@ async function handleAdminCounts(matchFilter) {
           {
             $match: {
               interventionAction: {
-                $in: ["Solved", "Not Solved", "Action Taken", "Reviewed"],
+                $in: [
+                  "Solved",
+                  "Not Solved",
+                  "Action Taken",
+                  "Reviewed",
+                  "State Lead Reviewed",
+                  "Zonal Reviewed",
+                ],
               },
             },
           },
@@ -382,7 +390,8 @@ async function getInterventionCounts(matchFilter) {
                   "Party / Organizational",
                   "Government / Administrative",
                   "Alliance",
-                  "Leader Activation",
+                  "SHS Leader Activation",
+                  "SHS Dispute Resolved",
                 ],
               },
             },
@@ -398,7 +407,14 @@ async function getInterventionCounts(matchFilter) {
           {
             $match: {
               interventionAction: {
-                $in: ["Solved", "Not Solved", "Action Taken", "Reviewed"],
+                $in: [
+                  "Solved",
+                  "Not Solved",
+                  "Action Taken",
+                  "Reviewed",
+                  "State Lead Reviewed",
+                  "Zonal Reviewed",
+                ],
               },
             },
           },
@@ -454,9 +470,17 @@ function formatCounts(counts) {
     "Party / Organizational",
     "Government / Administrative",
     "Alliance",
-    "Leader Activation",
+    "SHS Leader Activation",
+    "SHS Dispute Resolved",
   ];
-  const allActions = ["Solved", "Not Solved", "Action Taken", "Reviewed"];
+  const allActions = [
+    "Solved",
+    "Not Solved",
+    "Action Taken",
+    "Reviewed",
+    "State Lead Reviewed",
+    "Zonal Reviewed",
+  ];
 
   allTypes.forEach((type) => {
     if (!result.typeCounts[type]) {
