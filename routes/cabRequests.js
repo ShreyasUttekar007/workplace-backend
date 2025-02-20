@@ -6,6 +6,8 @@ const VendorList = require("../models/VendorList");
 const { roles } = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
 const sgMail = require("@sendgrid/mail");
+const { Parser } = require("json2csv");
+
 
 router.use(authenticateUser);
 
@@ -216,6 +218,52 @@ router.put("/update-cab-data/:momId", async (req, res) => {
     res.status(200).json(updatedMom);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/export-csv', async (req, res) => {
+  try {
+    // Fetch all form data from the database
+    const formData = await CabRecord.find({});
+
+    // Define the fields you want in the CSV
+    const fields = [
+      'userId',
+      'cabRequestCode',
+      'name',
+      'employeeCode',
+      'email',
+      'dateOfRequest',
+      'employeePhoneNumber',
+      'pickupTime',
+      'pickupLocation',
+      'purpose',
+      'recieverEmail',
+      'recieverName',
+      'startTime',
+      'speedometerStartPhoto',
+      'startingDistance',
+      'endTime',
+      'speedometerEndPhoto',
+      'endKm',
+      'cabNumber',
+      'driverName',
+      'driverNumber',
+      'remarks',
+      'vendor',
+    ];
+
+    // Create a JSON2CSV parser instance
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(formData);
+
+    // Set the proper headers for a CSV download
+    res.header('Content-Type', 'text/csv');
+    res.attachment('formData.csv');
+    res.send(csv);
+  } catch (err) {
+    console.error('Error exporting data to CSV:', err);
+    res.status(500).json({ error: 'Failed to export data to CSV' });
   }
 });
 
