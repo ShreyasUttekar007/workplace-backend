@@ -16,15 +16,13 @@ router.post("/leave", async (req, res) => {
     const momData = req.body;
 
     // Validate if req.user exists
-    if (!req.user || !req.user._id) {
+    if (!req.user?.id) {
       return res.status(403).json({ error: "Unauthorized user" });
     }
 
     // Validate if userId exists in momData
     if (!momData.userId) {
-      return res
-        .status(400)
-        .json({ error: "Missing userId in the request body" });
+      return res.status(400).json({ error: "Missing userId in the request body" });
     }
 
     // Check if userId matches the logged-in user's _id
@@ -35,66 +33,67 @@ router.post("/leave", async (req, res) => {
     // Create new leave request
     const newLeave = await Leave.create(momData);
 
-    const documentUrl = momData.document || "No document provided"; // Use the document URL or a fallback message
+    const documentUrl = momData.document || "No document provided";
     const formatDate = (dateString) => {
       const date = new Date(dateString);
-      return date.toLocaleDateString("en-GB"); // en-GB ensures dd/mm/yyyy format
+      return date.toLocaleDateString("en-GB");
     };
 
+    const recipients = [
+      momData.receiverEmail,
+      "stc.portal@showtimeconsulting.in",
+      "saumitra@showtimeconsulting.in",
+    ];
+
+    if (momData.reportingManagerEmail2) {
+      recipients.push(momData.reportingManagerEmail2);
+    }
+
     const msg = {
-      to: [
-        momData.receiverEmail,
-        "stc.portal@showtimeconsulting.in",
-        "saumitra@showtimeconsulting.in",
-        momData.reportingManagerEmail2,
-      ], // Send to both receiver and HR
+      to: recipients,
       from: "stc.portal@showtimeconsulting.in",
-      cc: momData.email, // CC the sender's email
-      subject: `Leave Request - ${momData.reasonForLeave} :: ${momData.name} :: ${newLeave.leaveCode}`, // Updated subject
+      cc: momData.email,
+      subject: `Leave Request - ${momData.reasonForLeave} :: ${momData.name} :: ${newLeave.leaveCode}`,
       text: `Dear HR,
 
 I hope this message finds you well. I am writing to formally request leave from ${formatDate(
         momData.startDate
-      )} to ${formatDate(
-        momData.endDate
-      )}. The type of leave I am requesting is ${momData.leaveType}.
+      )} to ${formatDate(momData.endDate)}. The type of leave I am requesting is ${momData.leaveType}.
 
 Reason: 
 ${momData.summaryForLeave}
 
 To support my request, you can find the relevant document at the following link:
-document
+${documentUrl}
 
 Thank you for your understanding and consideration.
 
 Best regards,
 ${momData.name}`,
       html: `
-    <p>Dear HR,</p>
-    <p>
-      I hope this message finds you well. I am writing to formally request leave from 
-      <strong>${formatDate(momData.startDate)}</strong> to 
-      <strong>${formatDate(
-        momData.endDate
-      )}</strong>. The type of leave I am requesting is 
-      <strong>${momData.leaveType}</strong>.
-    </p>
-    <p><strong>Reason:</strong></p>
-    <p>${momData.summaryForLeave}</p>
-    <p>
-      To support my request, you can find the relevant document at the following link:<br />
-      <a href="${documentUrl}" target="_blank">Supporting Document</a>
-    </p>
-    <p>Thank you for your understanding and consideration.</p>
-    <p>Best regards,<br />${momData.name}</p>
-  `,
+        <p>Dear HR,</p>
+        <p>I hope this message finds you well. I am writing to formally request leave from 
+          <strong>${formatDate(momData.startDate)}</strong> to 
+          <strong>${formatDate(momData.endDate)}</strong>. The type of leave I am requesting is 
+          <strong>${momData.leaveType}</strong>.
+        </p>
+        <p><strong>Reason:</strong></p>
+        <p>${momData.summaryForLeave}</p>
+        <p>
+          To support my request, you can find the relevant document at the following link:<br />
+          <a href="${documentUrl}" target="_blank">Supporting Document</a>
+        </p>
+        <p>Thank you for your understanding and consideration.</p>
+        <p>Best regards,<br />${momData.name}</p>
+      `,
     };
 
     try {
       await sgMail.send(msg);
       console.log("Email sent successfully!");
     } catch (error) {
-      console.error("Error sending email:", error);
+      console.error("Error sending email:", error.response ? error.response.body : error);
+      return res.status(500).json({ error: "Failed to send email", details: error.response ? error.response.body : error.message });
     }
 
     res.status(201).json(newLeave);
@@ -103,6 +102,7 @@ ${momData.name}`,
     res.status(500).json({ error: error.message });
   }
 });
+
 
 router.get("/leave-requests", authenticateUser, async (req, res) => {
   try {
