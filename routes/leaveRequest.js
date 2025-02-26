@@ -39,40 +39,42 @@ router.post("/leave", async (req, res) => {
       return date.toLocaleDateString("en-GB");
     };
 
-    const recipients = [
+    const recipients = new Set([
       momData.receiverEmail,
       "stc.portal@showtimeconsulting.in",
       "saumitra@showtimeconsulting.in",
-    ];
-
+    ]);
+    
     if (momData.reportingManagerEmail2) {
-      recipients.push(momData.reportingManagerEmail2);
+      recipients.add(momData.reportingManagerEmail2);
     }
-
+    
+    // Convert Set back to an array to ensure uniqueness
     const msg = {
-      to: recipients,
+      to: [...recipients],
       from: "stc.portal@showtimeconsulting.in",
-      cc: momData.email,
+      cc: momData.email && !recipients.has(momData.email) ? momData.email : undefined, // Ensure cc is unique
       subject: `Leave Request - ${momData.reasonForLeave} :: ${momData.name} :: ${newLeave.leaveCode}`,
       text: `Dear HR,
-
-I hope this message finds you well. I am writing to formally request leave from ${formatDate(
+    
+    I hope this message finds you well. I am writing to formally request leave from ${formatDate(
         momData.startDate
       )} to ${formatDate(momData.endDate)}. The type of leave I am requesting is ${momData.leaveType}.
-
-Reason: 
-${momData.summaryForLeave}
-
-To support my request, you can find the relevant document at the following link:
-${documentUrl}
-
-Thank you for your understanding and consideration.
-
-Best regards,
-${momData.name}`,
+    
+    Reason: 
+    ${momData.summaryForLeave}
+    
+    To support my request, you can find the relevant document at the following link:
+    ${documentUrl}
+    
+    Thank you for your understanding and consideration.
+    
+    Best regards,
+    ${momData.name}`,
       html: `
         <p>Dear HR,</p>
-        <p>I hope this message finds you well. I am writing to formally request leave from 
+        <p>
+          I hope this message finds you well. I am writing to formally request leave from 
           <strong>${formatDate(momData.startDate)}</strong> to 
           <strong>${formatDate(momData.endDate)}</strong>. The type of leave I am requesting is 
           <strong>${momData.leaveType}</strong>.
