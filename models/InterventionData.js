@@ -71,6 +71,10 @@ const interventionDataSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    rework: {
+      type: String,
+      trim: true,
+    },
     category: {
       type: String,
       trim: true,
