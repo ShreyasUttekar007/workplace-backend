@@ -21,15 +21,11 @@ const generatePDF = (leaveData) => {
     doc.pipe(writeStream);
 
     // Title
-    doc
-      .fontSize(18)
-      .text("Daily Leave Report", { align: "center", underline: true });
+    doc.fontSize(18).text("Daily Leave Report", { align: "center", underline: true });
     doc.moveDown(2);
 
     if (leaveData.length === 0) {
-      doc
-        .fontSize(14)
-        .text("No employees are on leave today.", { align: "center" });
+      doc.fontSize(14).text("No employees are on leave today.", { align: "center" });
       doc.end();
       writeStream.on("finish", () => resolve(filePath));
       writeStream.on("error", reject);
@@ -39,46 +35,34 @@ const generatePDF = (leaveData) => {
     doc.fontSize(14).text(`Total Employees on Leave: ${leaveData.length}`);
     doc.moveDown(2);
 
-    // Table Headers
-    // Table Headers
-    const headers = [
-      "#",
-      "Name",
-      "Emp Code",
-      "Department",
-      "Manager",
-      "Leave Type",
-      "Reason",
-    ];
-    const columnWidths = [40, 100, 80, 80, 100, 100, 300]; // Adjusted for better fit
+    const headers = ["#", "Name", "Emp Code", "Department", "Manager", "Leave Type", "Reason"];
+    const columnWidths = [40, 100, 80, 80, 100, 100, 300];
+    const maxRowsPerPage = 7;
     let y = doc.y + 10;
+    let currentRow = 0;
 
-    doc.fillColor("black");
-
-    headers.forEach((header, i) => {
-      const xPos = 30 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0);
-
-      // Draw the header background
-      doc.rect(xPos, y - 2, columnWidths[i], 30).fill("#87CEEB"); // Light Blue Header
-
-      // Draw the border for the header
-      doc.rect(xPos, y - 2, columnWidths[i], 30).stroke();
-
-      // Add text
-      doc
-        .fillColor("black")
-        .font("Helvetica-Bold")
-        .fontSize(12)
-        .text(header, xPos + 5, y + 7, {
+    const drawTableHeaders = () => {
+      y = doc.y + 10;
+      headers.forEach((header, i) => {
+        const xPos = 30 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0);
+        doc.rect(xPos, y - 2, columnWidths[i], 30).fill("#87CEEB").stroke();
+        doc.fillColor("black").font("Helvetica-Bold").fontSize(12).text(header, xPos + 5, y + 7, {
           width: columnWidths[i] - 10,
           align: "left",
         });
-    });
+      });
+      y += 35;
+    };
 
-    y += 35;
-    doc.fillColor("black");
+    drawTableHeaders();
 
     leaveData.forEach((leave, index) => {
+      if (currentRow >= maxRowsPerPage) {
+        doc.addPage();
+        drawTableHeaders();
+        currentRow = 0;
+      }
+
       const rowHeight = 50;
       const values = [
         index + 1,
@@ -92,18 +76,16 @@ const generatePDF = (leaveData) => {
 
       values.forEach((value, i) => {
         const xPos = 30 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0);
-        doc
-          .font("Helvetica")
-          .fontSize(11)
-          .text(value, xPos + 5, y + 10, {
-            width: columnWidths[i] - 10,
-            align: "left",
-            ellipsis: true,
-          });
+        doc.font("Helvetica").fontSize(11).text(value, xPos + 5, y + 10, {
+          width: columnWidths[i] - 10,
+          align: "left",
+          ellipsis: true,
+        });
         doc.rect(xPos, y - 2, columnWidths[i], rowHeight).stroke();
       });
 
       y += rowHeight;
+      currentRow++;
     });
 
     doc.end();
@@ -113,12 +95,7 @@ const generatePDF = (leaveData) => {
 };
 
 const sendEmailWithPDF = async (filePath, leaveData) => {
-  const recipients = [
-    "anurag@showtimeconsulting.in",
-    "saumitra@showtimeconsulting.in",
-    "stc.portal@showtimeconsulting.in",
-    "prasad.p@showtimeconsulting.in",
-  ];
+  const recipients = ["stc.portal@showtimeconsulting.in"];
   const emailContent = leaveData.length
     ? `Attached is the daily leave report. Total Employees on Leave: ${leaveData.length}`
     : "No employees are on leave today.";
