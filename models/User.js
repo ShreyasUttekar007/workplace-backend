@@ -29,6 +29,12 @@ const UserSchema = new Schema(
     empId: {
       type: String,
     },
+    location: {
+      type: String,
+    },
+    stcCode: {
+      type: String,
+    },
     roles: {
       type: [
         {

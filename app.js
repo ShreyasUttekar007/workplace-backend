@@ -27,6 +27,7 @@ const stateMappingRoutes = require("./routes/stateMapping");
 const travelRoutes = require("./routes/travelRecords");
 const holidayRoutes = require("./routes/mahaHolidayCalendar");
 const cabRoutes = require("./routes/cabRequests");
+const newMomRoutes = require("./routes/newMom");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
@@ -110,6 +111,7 @@ app.use("/api/state", stateMappingRoutes);
 app.use("/api/travel", travelRoutes);
 app.use("/api/holiday", holidayRoutes);
 app.use("/api/cab", cabRoutes);
+app.use("/api/new-mom", newMomRoutes);
 
 
 if (process.env.NODE_ENV === "production") {
