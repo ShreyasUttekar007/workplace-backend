@@ -306,7 +306,7 @@ async function handleAdminCounts(matchFilter) {
                   "Government / Administrative",
                   "Alliance",
                   "SHS Leader Activation",
-                  "SHS Dispute Resolved",
+                  "SHS Dispute Resolution",
                 ],
               },
             },
@@ -391,7 +391,7 @@ async function getInterventionCounts(matchFilter) {
                   "Government / Administrative",
                   "Alliance",
                   "SHS Leader Activation",
-                  "SHS Dispute Resolved",
+                  "SHS Dispute Resolution",
                 ],
               },
             },
@@ -471,7 +471,7 @@ function formatCounts(counts) {
     "Government / Administrative",
     "Alliance",
     "SHS Leader Activation",
-    "SHS Dispute Resolved",
+    "SHS Dispute Resolution",
   ];
   const allActions = [
     "Solved",
