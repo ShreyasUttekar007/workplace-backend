@@ -1,5 +1,8 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const Booths = require("../models/BoothList");
+const BoothsAp = require("../models/BoothListAP");
+
 
 const NewMomSchema = new Schema(
   {
@@ -7,6 +10,10 @@ const NewMomSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    state: {
+      type: String,
+      trim: true,
     },
     zone: {
       type: String,
@@ -28,7 +35,7 @@ const NewMomSchema = new Schema(
     ward: {
       type: String,
       trim: true,
-    }, 
+    },
     leaderName: {
       type: String,
       trim: true,
@@ -92,14 +99,33 @@ const NewMomSchema = new Schema(
   { timestamps: true }
 );
 
-NewMomSchema.pre("save", async function () {
+NewMomSchema.pre("save", async function (next) {
   try {
-    await this.populate("userId", "email");
+    // Fetch email of the userId if needed
+    const user = await mongoose.model("User").findById(this.userId).select("email");
+
+    let stateData;
+
+    // Check state and fetch data from the appropriate collection
+    if (this.state === "Maharashtra") {
+      stateData = await Booths.findOne({ constituency: this.constituency });
+    } else if (this.state === "Andhra Pradesh") {
+      stateData = await BoothsAp.findOne({ constituency: this.constituency });
+    }
+
+    // If data is found, assign values
+    if (stateData) {
+      this.zone = stateData.zone;
+      this.district = stateData.district;
+      this.pc = stateData.pc;
+    }
+
+    next(); // Ensure next is only called once
   } catch (error) {
-    console.error("Error during population:", error);
+    next(error); // Properly pass errors to the next middleware
   }
 });
 
-const NewMom = mongoose.model("NewMom", NewMomSchema);
 
+const NewMom = mongoose.model("NewMom", NewMomSchema);
 module.exports = NewMom;

@@ -138,9 +138,7 @@ router.get("/get-report/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const userRoles = req.user?.roles || [];
-    const userLocation = req.user?.location; // Get user's location
-    console.log('✌️userRoles --->', userRoles);
-    console.log('✌️userLocation --->', userLocation);
+    const userLocation = req.user?.location; 
 
     // Construct the query dynamically
     const query = {};

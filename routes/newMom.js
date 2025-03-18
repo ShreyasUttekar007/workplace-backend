@@ -66,20 +66,18 @@ router.get("/get-mom/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const userRoles = req.user?.roles || [];
+    const userLocation = req.user?.location; 
 
-    // Check if user is admin
-    if (userRoles.includes("admin")) {
-      const moms = await Mom.find().populate("userId");
-      return res.status(200).json(moms);
-    }
+    // Construct the query dynamically
+    const query = {};
 
-    // Check if the requested userId matches the authenticated user's id
-    if (userId !== req.user._id.toString()) {
-      return res.status(403).json({ error: "Forbidden - Unauthorized user" });
+    // Ensure state-based filtering for all users, including admin
+    if (userLocation === "Maharashtra" || userLocation === "Andhra Pradesh") {
+      query.state = userLocation;
     }
 
     // Fetch user info
-    const user = await User.findById(req.user._id).select("roles");
+    const user = await User.findById(req.user._id).select("roles location");
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -96,28 +94,29 @@ router.get("/get-mom/:userId", async (req, res) => {
       parliamentaryConstituencyRoles.includes(role)
     );
 
-    // Construct the query dynamically
-    const query = {};
     if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
-    if (userDistrictRoles.length > 0)
-      query.district = { $in: userDistrictRoles };
-    if (userConstituencyRoles.length > 0)
-      query.constituency = { $in: userConstituencyRoles };
+    if (userDistrictRoles.length > 0) query.district = { $in: userDistrictRoles };
+    if (userConstituencyRoles.length > 0) query.constituency = { $in: userConstituencyRoles };
     if (userParliamentaryConstituencyRoles.length > 0) {
       query.pc = { $in: userParliamentaryConstituencyRoles };
     }
 
-    // If no roles match, only fetch MOMs for the specific user
-    if (Object.keys(query).length === 0) {
+    // Admins should see all reports in their state, not just their userId
+    if (!userRoles.includes("admin") && userId !== req.user._id.toString()) {
+      return res.status(403).json({ error: "Forbidden - Unauthorized user" });
+    }
+
+    // If the user is not admin, restrict data to their userId if no roles match
+    if (!userRoles.includes("admin") && Object.keys(query).length === 1) { // Only state exists
       query.userId = userId;
     }
     console.log("Constructed Query: ", query);
 
     // Fetch data from DB
-    const moms = await Mom.find(query).populate("userId");
-    return res.status(200).json(moms);
+    const reports = await Mom.find(query).populate("userId");
+    return res.status(200).json(reports);
   } catch (error) {
-    console.error("Error fetching MOM data: ", error);
+    console.error("Error fetching report data: ", error);
     return res.status(500).json({ error: error.message });
   }
 });
