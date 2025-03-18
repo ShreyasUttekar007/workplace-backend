@@ -118,7 +118,7 @@ const generatePDF = (leaveData) => {
 
 const sendEmailWithPDF = async (filePath, leaveData) => {
   const recipients = [
-    "stc.portal@showtimeconsulting.in, saumitra@showtimeconsulting.in, prasad.p@showtimeconsulting.in, anuragsaxena@showtimeconsulting.in",
+    "stc.portal@showtimeconsulting.in", "saumitra@showtimeconsulting.in", "prasad.p@showtimeconsulting.in", "anuragsaxena@showtimeconsulting.in",
   ];
   const emailContent = leaveData.length
     ? `Attached is the daily leave report. Total Employees on Leave: ${leaveData.length}`
