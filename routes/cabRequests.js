@@ -254,14 +254,50 @@ router.get("/get-cab-by-id/:momId", async (req, res) => {
   }
 });
 
+
 router.put("/update-cab-data/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
     const updatedMom = await CabRecord.findByIdAndUpdate(momId, req.body, {
       new: true,
     });
+
+    if (!updatedMom) {
+      return res.status(404).json({ error: "Cab record not found" });
+    }
+
+    // Extract updated details
+    const {
+      name,
+      employeePhoneNumber,
+      pickupLocation,
+      pickupTime,
+      cabNumber,
+      driverName,
+      driverNumber,
+    } = updatedMom;
+
+    if (employeePhoneNumber) {
+      const formattedPhone = employeePhoneNumber.replace(/\D/g, ""); // Extract digits
+      const phoneNumber =
+        formattedPhone.length === 10 ? `+91${formattedPhone}` : `+${formattedPhone}`;
+
+      // WhatsApp message
+      const message = `Dear ${name},\n\nPlease find your updated cab details below:\n🚖 Pickup Location: ${pickupLocation}\n⏰ Pickup Time: ${pickupTime}\n🚕 Cab Number: ${cabNumber}\n👨‍✈️ Driver Name: ${driverName}\n📞 Driver Number: ${driverNumber}\n\nThank you.`;
+
+      // Send WhatsApp message
+      await client.messages.create({
+        from: process.env.TWILIO_WHATSAPP_NUMBER,
+        to: `whatsapp:${phoneNumber}`,
+        body: message,
+      });
+
+      console.log("WhatsApp notification sent successfully!");
+    }
+
     res.status(200).json(updatedMom);
   } catch (error) {
+    console.error("Error sending WhatsApp message:", error);
     res.status(500).json({ error: error.message });
   }
 });
