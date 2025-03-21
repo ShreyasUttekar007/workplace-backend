@@ -7,7 +7,7 @@ const { roles } = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
 const sgMail = require("@sendgrid/mail");
 const { Parser } = require("json2csv");
-
+const twilio = require("twilio");
 
 router.use(authenticateUser);
 
@@ -98,6 +98,11 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 //   }
 // });
 
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
 router.post("/cab-record", async (req, res) => {
   try {
     const cabData = req.body;
@@ -115,12 +120,52 @@ router.post("/cab-record", async (req, res) => {
     // Create new cab request
     const newCabRequest = await CabRecord.create(cabData);
 
-    res.status(201).json(newCabRequest);
+    // Retrieve the saved request (to get employeePhoneNumber)
+    const savedCabRequest = await CabRecord.findById(newCabRequest._id);
+
+    if (!savedCabRequest || !savedCabRequest.employeePhoneNumber) {
+      return res.status(500).json({ error: "Failed to retrieve phone number." });
+    }
+
+    const recipientNumber = `whatsapp:+919082210297`;
+    console.log("📨 Sending WhatsApp message to:", recipientNumber);
+
+    // Convert to 12-hour format
+    const formatTo12Hour = (time) => {
+      const [hours, minutes] = time.split(":");
+      const date = new Date();
+      date.setHours(parseInt(hours), parseInt(minutes));
+      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+    };
+
+    // Format WhatsApp message
+    const messageBody = `🚖 Cab Request
+Name: ${savedCabRequest.name}
+Phone: ${savedCabRequest.employeePhoneNumber}
+Date: ${new Date(savedCabRequest.dateOfRequest).toLocaleDateString("en-GB")}
+Pickup Location: ${savedCabRequest.pickupLocation}
+Pickup Time: ${formatTo12Hour(savedCabRequest.pickupTime)}`;
+
+    // Send WhatsApp message
+    try {
+      const message = await client.messages.create({
+        body: messageBody,
+        from: process.env.TWILIO_WHATSAPP_NUMBER, // Directly using env variable
+        to: recipientNumber,
+      });
+      console.log("✅ WhatsApp Message Sent:", message.sid);
+    } catch (twilioError) {
+      console.error("❌ Twilio WhatsApp Error:", twilioError.message);
+    }
+
+    res.status(201).json(savedCabRequest);
   } catch (error) {
-    console.error("Error processing cab request:", error);
+    console.error("❌ Error processing cab request:", error);
     res.status(500).json({ error: error.message });
   }
 });
+
+
 
 router.get("/cab-requests", authenticateUser, async (req, res) => {
   try {
@@ -221,36 +266,36 @@ router.put("/update-cab-data/:momId", async (req, res) => {
   }
 });
 
-router.get('/export-csv', async (req, res) => {
+router.get("/export-csv", async (req, res) => {
   try {
     // Fetch all form data from the database
     const formData = await CabRecord.find({});
 
     // Define the fields you want in the CSV
     const fields = [
-      'userId',
-      'cabRequestCode',
-      'name',
-      'employeeCode',
-      'email',
-      'dateOfRequest',
-      'employeePhoneNumber',
-      'pickupTime',
-      'pickupLocation',
-      'purpose',
-      'recieverEmail',
-      'recieverName',
-      'startTime',
-      'speedometerStartPhoto',
-      'startingDistance',
-      'endTime',
-      'speedometerEndPhoto',
-      'endKm',
-      'cabNumber',
-      'driverName',
-      'driverNumber',
-      'remarks',
-      'vendor',
+      "userId",
+      "cabRequestCode",
+      "name",
+      "employeeCode",
+      "email",
+      "dateOfRequest",
+      "employeePhoneNumber",
+      "pickupTime",
+      "pickupLocation",
+      "purpose",
+      "recieverEmail",
+      "recieverName",
+      "startTime",
+      "speedometerStartPhoto",
+      "startingDistance",
+      "endTime",
+      "speedometerEndPhoto",
+      "endKm",
+      "cabNumber",
+      "driverName",
+      "driverNumber",
+      "remarks",
+      "vendor",
     ];
 
     // Create a JSON2CSV parser instance
@@ -258,12 +303,12 @@ router.get('/export-csv', async (req, res) => {
     const csv = json2csvParser.parse(formData);
 
     // Set the proper headers for a CSV download
-    res.header('Content-Type', 'text/csv');
-    res.attachment('formData.csv');
+    res.header("Content-Type", "text/csv");
+    res.attachment("formData.csv");
     res.send(csv);
   } catch (err) {
-    console.error('Error exporting data to CSV:', err);
-    res.status(500).json({ error: 'Failed to export data to CSV' });
+    console.error("Error exporting data to CSV:", err);
+    res.status(500).json({ error: "Failed to export data to CSV" });
   }
 });
 

@@ -83,6 +83,10 @@ const LeaveRequestSchema = new Schema(
       type: String,
       trim: true,
     },
+    location: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true }
 );

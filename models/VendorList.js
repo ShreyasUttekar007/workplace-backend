@@ -17,6 +17,11 @@ const VendorListSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    vendorGroupLink: {
+      type: String,
+      required: true,
+      trim: true,
+    },
   },
   {
     timestamps: true, 
