@@ -96,6 +96,13 @@ const cabRequestSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    addOnPerson: [
+      {
+        employeeName: { type: String, trim: true },
+        employeePhoneNumber: { type: String, trim: true },
+        employeeEmail: { type: String, trim: true },
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -137,6 +144,6 @@ cabRequestSchema.pre("save", async function (next) {
   next();
 });
 
-const CabRequest = mongoose.model(" CabRequest", cabRequestSchema);
+const CabRequest = mongoose.model("CabRequest", cabRequestSchema);
 
 module.exports = CabRequest;

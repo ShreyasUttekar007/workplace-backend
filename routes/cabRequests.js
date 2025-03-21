@@ -8,6 +8,7 @@ const authenticateUser = require("../middleware/authenticateUser");
 const sgMail = require("@sendgrid/mail");
 const { Parser } = require("json2csv");
 const twilio = require("twilio");
+const EmployeeLeave = require("../models/EmployeeData");
 
 router.use(authenticateUser);
 
@@ -120,7 +121,7 @@ router.post("/cab-record", async (req, res) => {
     // Create new cab request
     const newCabRequest = await CabRecord.create(cabData);
 
-    // Retrieve the saved request (to get employeePhoneNumber)
+    // Retrieve the saved request (to get employeePhoneNumber and addOnPerson)
     const savedCabRequest = await CabRecord.findById(newCabRequest._id);
 
     if (!savedCabRequest || !savedCabRequest.employeePhoneNumber) {
@@ -138,13 +139,24 @@ router.post("/cab-record", async (req, res) => {
       return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
     };
 
+    // Format add-on persons details
+    const addOnDetails =
+      savedCabRequest.addOnPerson && savedCabRequest.addOnPerson.length > 0
+        ? savedCabRequest.addOnPerson
+            .map((person) => `${person.employeeName} - ${person.employeePhoneNumber}`)
+            .join("\n")
+        : "None";
+
     // Format WhatsApp message
-    const messageBody = `🚖 Cab Request
-Name: ${savedCabRequest.name}
-Phone: ${savedCabRequest.employeePhoneNumber}
-Date: ${new Date(savedCabRequest.dateOfRequest).toLocaleDateString("en-GB")}
-Pickup Location: ${savedCabRequest.pickupLocation}
-Pickup Time: ${formatTo12Hour(savedCabRequest.pickupTime)}`;
+    const messageBody = `🚖 *Cab Request*
+*Name:* ${savedCabRequest.name}
+*Mobile Number:* ${savedCabRequest.employeePhoneNumber}
+*Date:* ${new Date(savedCabRequest.dateOfRequest).toLocaleDateString("en-GB")}
+*Pickup Location:* ${savedCabRequest.pickupLocation}
+*Pickup Time:* ${formatTo12Hour(savedCabRequest.pickupTime)}
+
+*Co-Passengers:* 
+${addOnDetails}`;
 
     // Send WhatsApp message
     try {
@@ -166,26 +178,45 @@ Pickup Time: ${formatTo12Hour(savedCabRequest.pickupTime)}`;
 });
 
 
+router.get("/employees/soul-field", async (req, res) => {
+  try {
+    const employees = await EmployeeLeave.find(
+      { department: "Soul Field" }, 
+      { employeeEmail: 1, employeeName: 1, employeePhoneNumber: 1, _id: 0 }
+    );
+
+    res.status(200).json(employees);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 router.get("/cab-requests", authenticateUser, async (req, res) => {
   try {
     const userId = req.user?._id || req.user?.userId;
+    const userEmail = req.user?.email;
 
-    if (!userId) {
-      return res.status(400).json({ error: "User ID is required." });
+    if (!userId && !userEmail) {
+      return res.status(400).json({ error: "User ID or email is required." });
     }
 
-    // Fetch cab requests for the specific user
-    const cabRequests = await CabRecord.find({ userId }).sort({
-      createdAt: -1,
-    });
+    // Fetch cab requests where:
+    // - The user is the requestor (userId matches)
+    // - OR the user's email is in addOnPerson.employeeEmail
+    const cabRequests = await CabRecord.find({
+      $or: [
+        { userId }, 
+        { "addOnPerson.employeeEmail": { $regex: new RegExp(`^${userEmail}$`, "i") } } // Case-insensitive match
+      ]
+    }).sort({ createdAt: -1 });
 
     res.status(200).json({ cabRequests });
   } catch (error) {
-    console.error("Error fetching cab requests:", error);
+    console.error("❌ Error fetching cab requests:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
 
 router.get("/cab-requests-emails", authenticateUser, async (req, res) => {
   try {
@@ -254,6 +285,17 @@ router.get("/get-cab-by-id/:momId", async (req, res) => {
   }
 });
 
+router.put("/update-user-cab-data/:momId", async (req, res) => {
+  try {
+    const { momId } = req.params;
+    const updatedMom = await CabRecord.findByIdAndUpdate(momId, req.body, {
+      new: true,
+    });
+    res.status(200).json(updatedMom);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 router.put("/update-cab-data/:momId", async (req, res) => {
   try {
