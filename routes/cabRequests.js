@@ -300,9 +300,12 @@ router.put("/update-user-cab-data/:momId", async (req, res) => {
 router.put("/update-cab-data/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
-    const updatedMom = await CabRecord.findByIdAndUpdate(momId, req.body, {
-      new: true,
-    });
+
+    // Update the record
+    await CabRecord.findByIdAndUpdate(momId, req.body, { new: true });
+
+    // Fetch the updated record again to ensure all fields are populated
+    const updatedMom = await CabRecord.findById(momId);
 
     if (!updatedMom) {
       return res.status(404).json({ error: "Cab record not found" });
@@ -324,17 +327,21 @@ router.put("/update-cab-data/:momId", async (req, res) => {
       const phoneNumber =
         formattedPhone.length === 10 ? `+91${formattedPhone}` : `+${formattedPhone}`;
 
-      // WhatsApp message
-      const message = `Dear ${name},\n\nPlease find your updated cab details below:\n🚖 Pickup Location: ${pickupLocation}\n⏰ Pickup Time: ${pickupTime}\n🚕 Cab Number: ${cabNumber}\n👨‍✈️ Driver Name: ${driverName}\n📞 Driver Number: ${driverNumber}\n\nThank you.`;
+      // Ensure all required fields are present before sending the message
+      if (cabNumber && driverName && driverNumber) {
+        const message = `Dear ${name},\n\nPlease find your cab details below:\n🚖 Pickup Location: ${pickupLocation}\n⏰ Pickup Time: ${pickupTime}\n🚕 Cab Number: ${cabNumber}\n👨‍✈️ Driver Name: ${driverName}\n📞 Driver Number: ${driverNumber}\n\nThank you.`;
 
-      // Send WhatsApp message
-      await client.messages.create({
-        from: process.env.TWILIO_WHATSAPP_NUMBER,
-        to: `whatsapp:${phoneNumber}`,
-        body: message,
-      });
+        // Send WhatsApp message
+        await client.messages.create({
+          from: process.env.TWILIO_WHATSAPP_NUMBER,
+          to: `whatsapp:${phoneNumber}`,
+          body: message,
+        });
 
-      console.log("WhatsApp notification sent successfully!");
+        console.log("WhatsApp notification sent successfully!");
+      } else {
+        console.log("Cab details incomplete. WhatsApp message not sent.");
+      }
     }
 
     res.status(200).json(updatedMom);
@@ -343,6 +350,7 @@ router.put("/update-cab-data/:momId", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 router.get("/export-csv", async (req, res) => {
   try {
