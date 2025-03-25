@@ -14,91 +14,6 @@ router.use(authenticateUser);
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-// router.post("/cab-record", async (req, res) => {
-//   try {
-//     const cabData = req.body;
-
-//     // Validate user authorization
-//     if (!req.user || !req.user._id) {
-//       return res.status(403).json({ error: "Unauthorized user" });
-//     }
-
-//     // Ensure userId matches the logged-in user's ID
-//     if (cabData.userId.toString() !== req.user._id.toString()) {
-//       return res.status(403).json({ error: "Forbidden - Unauthorized user" });
-//     }
-
-//     // Create new cab request
-//     const newCabRequest = await CabRecord.create(cabData);
-
-//     // Email notification setup
-//     const formatDate = (dateString) =>
-//       dateString ? new Date(dateString).toLocaleDateString("en-GB") : "NA";
-
-//     const msg = {
-//       to: [
-//         "ops.maharashtra@showtimeconsulting.in",
-//         "stc.portal@showtimeconsulting.in",
-//       ],
-//       from: "stc.portal@showtimeconsulting.in",
-//       cc: cabData.email, // CC the sender
-//       subject: `Cab Request - ${cabData.purposeOfCab} :: ${newCabRequest.name} :: ${newCabRequest.cabCode}`,
-//       text: `Dear Admin Team,
-
-// I hope this message finds you well. I am requesting cab/accommodation arrangements for an upcoming event.
-
-// - **Cab Date:** ${formatDate(cabData.cabDate)}
-// - **From:** ${cabData.fromLocation}
-// - **To:** ${cabData.toLocation}
-// - **Event Location:** ${cabData.eventLocation}
-// - **Purpose of cab:** ${cabData.purposeOfCab}
-// - **Accommodation:** ${formatDate(
-//         cabData.accommodationStartDate
-//       )} to ${formatDate(cabData.accommodationEndDate)}
-// - **Remarks:** ${cabData.remarks || "N/A"}
-
-// Thank you for processing this request.
-
-// Best regards,
-// ${cabData.name}`,
-//       html: `
-//       <p>Dear Admin Team,</p>
-//       <p>I hope this message finds you well. I am requesting cab/accommodation arrangements for an upcoming event.</p>
-//       <ul>
-//         <li><strong>Cab Date:</strong> ${formatDate(
-//           cabData.cabDate
-//         )}</li>
-//         <li><strong>From:</strong> ${cabData.fromLocation}</li>
-//         <li><strong>To:</strong> ${cabData.toLocation}</li>
-//         <li><strong>Event Location:</strong> ${cabData.eventLocation}</li>
-//         <li><strong>Purpose of Cab:</strong> ${
-//           cabData.purposeOfCab
-//         }</li>
-//         <li><strong>Accommodation:</strong> ${formatDate(
-//           cabData.accommodationStartDate
-//         )} to ${formatDate(cabData.accommodationEndDate)}</li>
-//         <li><strong>Remarks:</strong> ${cabData.remarks || "N/A"}</li>
-//       </ul>
-//       <p>Thank you for processing this request.</p>
-//       <p>Best regards,<br />${newCabRequest.name}</p>
-//       `,
-//     };
-
-//     // Send email
-//     try {
-//       await sgMail.send(msg);
-//       console.log("Email sent successfully!");
-//     } catch (error) {
-//       console.error("Error sending email:", error);
-//     }
-
-//     res.status(201).json(newCabRequest);
-//   } catch (error) {
-//     console.error("Error processing cab request:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// });
-
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
@@ -118,59 +33,22 @@ router.post("/cab-record", async (req, res) => {
       return res.status(403).json({ error: "Forbidden - Unauthorized user" });
     }
 
+    const requestDate = new Date(cabData.dateOfRequest);
+    requestDate.setHours(0, 0, 0, 0);
+    
+    // Fetch existing requests for the same date
+    const existingRequest = await CabRecord.findOne({
+      userId: cabData.userId,
+      dateOfRequest: cabData.dateOfRequest,
+    });    
+
+    if (existingRequest) {
+      return res.status(400).json({ error: "Cab request already exists for this date for either you or one of your add-on persons." });
+    }
+
     // Create new cab request
     const newCabRequest = await CabRecord.create(cabData);
-
-    // Retrieve the saved request (to get employeePhoneNumber and addOnPerson)
-    const savedCabRequest = await CabRecord.findById(newCabRequest._id);
-
-    if (!savedCabRequest || !savedCabRequest.employeePhoneNumber) {
-      return res.status(500).json({ error: "Failed to retrieve phone number." });
-    }
-
-    const recipientNumber = `whatsapp:+919082210297`;
-    console.log("📨 Sending WhatsApp message to:", recipientNumber);
-
-    // Convert to 12-hour format
-    const formatTo12Hour = (time) => {
-      const [hours, minutes] = time.split(":");
-      const date = new Date();
-      date.setHours(parseInt(hours), parseInt(minutes));
-      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-    };
-
-    // Format add-on persons details
-    const addOnDetails =
-      savedCabRequest.addOnPerson && savedCabRequest.addOnPerson.length > 0
-        ? savedCabRequest.addOnPerson
-            .map((person) => `${person.employeeName} - ${person.employeePhoneNumber}`)
-            .join("\n")
-        : "None";
-
-    // Format WhatsApp message
-    const messageBody = `🚖 *Cab Request*
-*Name:* ${savedCabRequest.name}
-*Mobile Number:* ${savedCabRequest.employeePhoneNumber}
-*Date:* ${new Date(savedCabRequest.dateOfRequest).toLocaleDateString("en-GB")}
-*Pickup Location:* ${savedCabRequest.pickupLocation}
-*Pickup Time:* ${formatTo12Hour(savedCabRequest.pickupTime)}
-
-*Co-Passengers:* 
-${addOnDetails}`;
-
-    // Send WhatsApp message
-    try {
-      const message = await client.messages.create({
-        body: messageBody,
-        from: process.env.TWILIO_WHATSAPP_NUMBER, // Directly using env variable
-        to: recipientNumber,
-      });
-      console.log("✅ WhatsApp Message Sent:", message.sid);
-    } catch (twilioError) {
-      console.error("❌ Twilio WhatsApp Error:", twilioError.message);
-    }
-
-    res.status(201).json(savedCabRequest);
+    res.status(201).json(newCabRequest);
   } catch (error) {
     console.error("❌ Error processing cab request:", error);
     res.status(500).json({ error: error.message });
@@ -178,10 +56,11 @@ ${addOnDetails}`;
 });
 
 
+
 router.get("/employees/soul-field", async (req, res) => {
   try {
     const employees = await EmployeeLeave.find(
-      { department: "Soul Field" }, 
+      { department: "Soul Field" },
       { employeeEmail: 1, employeeName: 1, employeePhoneNumber: 1, _id: 0 }
     );
 
@@ -205,9 +84,13 @@ router.get("/cab-requests", authenticateUser, async (req, res) => {
     // - OR the user's email is in addOnPerson.employeeEmail
     const cabRequests = await CabRecord.find({
       $or: [
-        { userId }, 
-        { "addOnPerson.employeeEmail": { $regex: new RegExp(`^${userEmail}$`, "i") } } // Case-insensitive match
-      ]
+        { userId },
+        {
+          "addOnPerson.employeeEmail": {
+            $regex: new RegExp(`^${userEmail}$`, "i"),
+          },
+        }, // Case-insensitive match
+      ],
     }).sort({ createdAt: -1 });
 
     res.status(200).json({ cabRequests });
@@ -217,6 +100,32 @@ router.get("/cab-requests", authenticateUser, async (req, res) => {
   }
 });
 
+router.get(
+  "/cab-requests-reporting-manager",
+  authenticateUser,
+  async (req, res) => {
+    try {
+      const userEmail = req.user?.email;
+      console.log("✌️userEmail --->", userEmail);
+
+      if (!userEmail) {
+        return res.status(400).json({ error: "User email is required." });
+      }
+      // Fetch cab requests where the user's email is mentioned in reportingManagerEmail
+      const cabRequests = await CabRecord.find({
+        recieverEmail: userEmail,
+      }).sort({ createdAt: -1 });
+
+      res.status(200).json({ cabRequests });
+    } catch (error) {
+      console.error(
+        "Error fetching cab requests by reporting manager email:",
+        error
+      );
+      res.status(500).json({ error: "Internal server error." });
+    }
+  }
+);
 
 router.get("/cab-requests-emails", authenticateUser, async (req, res) => {
   try {
@@ -297,6 +206,76 @@ router.put("/update-user-cab-data/:momId", async (req, res) => {
   }
 });
 
+router.put("/update-reporting-manager-cab-data/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cabStatus } = req.body;
+
+    // Fetch the existing record before updating
+    const existingCabRequest = await CabRecord.findById(id);
+    if (!existingCabRequest) {
+      return res.status(404).json({ error: "Cab request not found" });
+    }
+
+    // Update the request
+    const updatedCabRequest = await CabRecord.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
+    const formatTo12Hour = (time) => {
+      const [hours, minutes] = time.split(":");
+      const date = new Date();
+      date.setHours(parseInt(hours), parseInt(minutes));
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    };
+
+    const recipientNumber = `whatsapp:+919082210297`;
+    // If status changed from "pending" to "approved", send WhatsApp message
+    if (
+      existingCabRequest.cabStatus === "pending" &&
+      cabStatus === "approved"
+    ) {
+      const addOnDetails =
+        updatedCabRequest.addOnPerson &&
+        updatedCabRequest.addOnPerson.length > 0
+          ? updatedCabRequest.addOnPerson
+              .map(
+                (person) =>
+                  `${person.employeeName} - ${person.employeePhoneNumber}`
+              )
+              .join("\n")
+          : "None";
+
+const messageBody = `🚖 *Cab Request* 
+*Name:* ${updatedCabRequest.name}
+*Mobile Number:* ${updatedCabRequest.employeePhoneNumber}
+*Date:* ${new Date(updatedCabRequest.dateOfRequest).toLocaleDateString("en-GB")}
+*Pickup Location:* ${updatedCabRequest.pickupLocation}
+*Pickup Time:* ${formatTo12Hour(updatedCabRequest.pickupTime)}
+
+*Co-Passengers:* 
+${addOnDetails}`;
+
+      // Send WhatsApp message
+      await client.messages.create({
+        from: process.env.TWILIO_WHATSAPP_NUMBER, // Directly using env variable
+        to: recipientNumber,
+        body: messageBody,
+      });
+
+      console.log("✅ WhatsApp message sent successfully!");
+    }
+
+    res.status(200).json(updatedCabRequest);
+  } catch (error) {
+    console.error("Error updating cab request:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.put("/update-cab-data/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
@@ -325,7 +304,9 @@ router.put("/update-cab-data/:momId", async (req, res) => {
     if (employeePhoneNumber) {
       const formattedPhone = employeePhoneNumber.replace(/\D/g, ""); // Extract digits
       const phoneNumber =
-        formattedPhone.length === 10 ? `+91${formattedPhone}` : `+${formattedPhone}`;
+        formattedPhone.length === 10
+          ? `+91${formattedPhone}`
+          : `+${formattedPhone}`;
 
       // Ensure all required fields are present before sending the message
       if (cabNumber && driverName && driverNumber) {
@@ -350,7 +331,6 @@ router.put("/update-cab-data/:momId", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 router.get("/export-csv", async (req, res) => {
   try {

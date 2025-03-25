@@ -96,6 +96,10 @@ const cabRequestSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    cabStatus: {
+      type: String,
+      default: "pending",
+    },
     addOnPerson: [
       {
         employeeName: { type: String, trim: true },

@@ -325,6 +325,7 @@ async function handleAdminCounts(matchFilter) {
                 $in: [
                   "Solved",
                   "Not Solved",
+                  "Rework",
                   "Action Taken",
                   "Verified",
                   "State Lead Reviewed",
@@ -410,6 +411,7 @@ async function getInterventionCounts(matchFilter) {
                 $in: [
                   "Solved",
                   "Not Solved",
+                  "Rework",
                   "Action Taken",
                   "Verified",
                   "State Lead Reviewed",
@@ -476,6 +478,7 @@ function formatCounts(counts) {
   const allActions = [
     "Solved",
     "Not Solved",
+    "Rework",
     "Action Taken",
     "Verified",
     "State Lead Reviewed",
