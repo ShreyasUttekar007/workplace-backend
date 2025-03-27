@@ -15,26 +15,27 @@ router.use(authenticateUser);
 
 router.post("/mom", async (req, res) => {
   try {
-    const momData = req.body;
+    const { userId, gMapLocation, ...restData } = req.body;
 
-    if (!momData.userId) {
-      return res.status(400).json({ error: "userId is required" });
+    if (!userId || !gMapLocation) {
+      return res.status(400).json({ error: "userId and gMapLocation are required" });
     }
 
     if (!req.user) {
       return res.status(401).json({ error: "Unauthorized - User not found" });
     }
 
-    if (momData.userId.toString() !== req.user._id.toString()) {
+    if (userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ error: "Forbidden - Unauthorized user" });
     }
 
-    const newMom = await Mom.create(momData);
+    const newMom = await Mom.create({ userId, gMapLocation, ...restData });
     res.status(201).json(newMom);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 router.get("/get-mom", async (req, res) => {

@@ -95,6 +95,9 @@ const NewMomSchema = new Schema(
     leaderPhoto: {
       type: String,
     },
+    gMapLocation: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
