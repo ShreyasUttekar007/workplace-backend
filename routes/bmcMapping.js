@@ -164,13 +164,13 @@ router.get(
 
 router.put("/update-intervention-action/:id", async (req, res) => {
   const { id } = req.params;
-  const { interventionAction } = req.body;
+  const { interventionAction, solvable } = req.body; // Destructure solvable
 
   try {
-    // Update the BoothData record by ID
+    // Update the InterventionData record by ID
     const updatedData = await InterventionData.findByIdAndUpdate(
       id,
-      { interventionAction }, // Only update the interventionAction
+      { interventionAction, solvable }, // Update both fields
       { new: true } // Return the updated document
     );
 
@@ -183,6 +183,7 @@ router.put("/update-intervention-action/:id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 router.get("/get-interventions/:id", async (req, res) => {
   const { id } = req.params;

@@ -75,6 +75,10 @@ const interventionDataSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    solvable: {
+      type: String,
+      trim: true,
+    },
     category: {
       type: String,
       trim: true,
