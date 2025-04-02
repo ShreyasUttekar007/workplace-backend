@@ -49,6 +49,10 @@ const TravelRequestSchema = new Schema(
       trim: true,
       default: "pending",
     },
+    age: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true }
 );
