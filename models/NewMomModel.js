@@ -64,6 +64,10 @@ const NewMomSchema = new Schema(
       type: String,
       trim: true,
     },
+    gMapLocation: {
+      type: String,
+      trim: true,
+    },
     makeMom: {
       type: String,
       required: [true, "Please select Yes or No"],

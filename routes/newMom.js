@@ -10,6 +10,7 @@ const {
   parliamentaryConstituencyRoles,
 } = require("../models/roles");
 const authenticateUser = require("../middleware/authenticateUser");
+const EmployeeLeave = require("../models/EmployeeData");
 
 router.use(authenticateUser);
 
@@ -36,11 +37,33 @@ router.post("/mom", async (req, res) => {
   }
 });
 
-
 router.get("/get-mom", async (req, res) => {
   try {
     const moms = await Mom.find().populate("userId");
-    res.status(200).json(moms);
+
+    const momsWithReportingManagers = await Promise.all(
+      moms.map(async (mom) => {
+        if (!mom.userId || !mom.userId.email) {
+          return {
+            ...mom.toObject(),
+            reportingManager: null,
+            reportingManagerEmail: null,
+          };
+        }
+
+        const employee = await EmployeeLeave.findOne({
+          employeeEmail: mom.userId.email.toLowerCase(),
+        });
+
+        return {
+          ...mom.toObject(),
+          reportingManager: employee?.reportingManager || null,
+          reportingManagerEmail: employee?.reportingManagerEmail || null,
+        };
+      })
+    );
+
+    res.status(200).json(momsWithReportingManagers);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -66,7 +89,7 @@ router.get("/get-mom/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const userRoles = req.user?.roles || [];
-    const userLocation = req.user?.location; 
+    const userLocation = req.user?.location;
 
     // Construct the query dynamically
     const query = {};
@@ -95,8 +118,10 @@ router.get("/get-mom/:userId", async (req, res) => {
     );
 
     if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
-    if (userDistrictRoles.length > 0) query.district = { $in: userDistrictRoles };
-    if (userConstituencyRoles.length > 0) query.constituency = { $in: userConstituencyRoles };
+    if (userDistrictRoles.length > 0)
+      query.district = { $in: userDistrictRoles };
+    if (userConstituencyRoles.length > 0)
+      query.constituency = { $in: userConstituencyRoles };
     if (userParliamentaryConstituencyRoles.length > 0) {
       query.pc = { $in: userParliamentaryConstituencyRoles };
     }
@@ -107,13 +132,16 @@ router.get("/get-mom/:userId", async (req, res) => {
     }
 
     // If the user is not admin, restrict data to their userId if no roles match
-    if (!userRoles.includes("admin") && Object.keys(query).length === 1) { // Only state exists
+    if (!userRoles.includes("admin") && Object.keys(query).length === 1) {
+      // Only state exists
       query.userId = userId;
     }
     console.log("Constructed Query: ", query);
 
     // Fetch data from DB
-    const reports = await Mom.find(query).populate("userId");
+    const reports = await Mom.find(query)
+      .populate("userId")
+      .sort({ createdAt: -1 });
     return res.status(200).json(reports);
   } catch (error) {
     console.error("Error fetching report data: ", error);
