@@ -46,6 +46,8 @@ I hope this message finds you well. I am requesting travel/accommodation arrange
 - **Travel Date:** ${formatDate(travelData.travelDate)}
 - **From:** ${travelData.fromLocation} 
 - **To:** ${travelData.toLocation} 
+- **Name:** ${travelData.name} 
+- **Contact Number:** ${travelData.employeePhoneNumber} 
 - **Age:** ${travelData.age} 
 - **Event Location:** ${travelData.eventLocation} 
 - **Purpose of Travel:** ${travelData.purposeOfTravel}
@@ -67,6 +69,8 @@ ${travelData.name}`,
         )}</li>
         <li><strong>From:</strong> ${travelData.fromLocation}</li>
         <li><strong>To:</strong> ${travelData.toLocation}</li>
+        <li><strong>Name:</strong> ${travelData.namer}</li>
+        <li><strong>Contact Number:</strong> ${travelData.employeePhoneNumber}</li>
         <li><strong>Age:</strong> ${travelData.age}</li>
         <li><strong>Event Location:</strong> ${travelData.eventLocation}</li>
         <li><strong>Purpose of Travel:</strong> ${
