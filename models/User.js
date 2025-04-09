@@ -6,6 +6,10 @@ const {
   districtRoles,
   assemblyConstituencies,
   parliamentaryConstituencyRoles,
+  zoneRolesAp,
+  districtRolesAp,
+  parliamentaryConstituencyRolesAp,
+  assemblyConstituenciesAp,
 } = require("../models/roles");
 
 const UserSchema = new Schema(
@@ -48,6 +52,10 @@ const UserSchema = new Schema(
             ...assemblyConstituencies,
             ...districtRoles,
             ...parliamentaryConstituencyRoles,
+            ...zoneRolesAp,
+            ...districtRolesAp,
+            ...parliamentaryConstituencyRolesAp,
+            ...assemblyConstituenciesAp,
           ],
         },
       ],
