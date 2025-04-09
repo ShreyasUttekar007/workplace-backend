@@ -41,38 +41,46 @@ router.get("/get-mom", async (req, res) => {
   try {
     const moms = await Mom.find().populate("userId");
 
-    const momsWithReportingManagers = await Promise.all(
-      moms.map(async (mom) => {
-        if (!mom.userId || !mom.userId.email) {
-          return {
-            ...mom.toObject(),
-            reportingManager: null,
-            reportingManagerEmail: null,
-          };
-        }
+    // Extract all emails
+    const userEmails = moms
+      .map((mom) => mom.userId?.email?.toLowerCase())
+      .filter(Boolean);
 
-        const employee = await EmployeeLeave.findOne({
-          employeeEmail: mom.userId.email.toLowerCase(),
-        });
+    // Fetch all employees in one go
+    const employeeData = await EmployeeLeave.find({
+      employeeEmail: { $in: userEmails },
+    });
 
-        return {
-          ...mom.toObject(),
-          reportingManager: employee?.reportingManager || null,
-          reportingManagerEmail: employee?.reportingManagerEmail || null,
-        };
-      })
-    );
+    // Create a quick lookup
+    const employeeMap = {};
+    employeeData.forEach((emp) => {
+      employeeMap[emp.employeeEmail.toLowerCase()] = {
+        reportingManager: emp.reportingManager,
+        reportingManagerEmail: emp.reportingManagerEmail,
+      };
+    });
 
-    res.status(200).json(momsWithReportingManagers);
+    const result = moms.map((mom) => {
+      const email = mom.userId?.email?.toLowerCase();
+      const managerData = email ? employeeMap[email] : null;
+
+      return {
+        ...mom.toObject(),
+        reportingManager: managerData?.reportingManager || null,
+        reportingManagerEmail: managerData?.reportingManagerEmail || null,
+      };
+    });
+
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+
 router.get("/get-mom-by-id/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
-    console.log("momId::: ", momId);
     const mom = await Mom.findById(momId).populate("userId");
 
     if (!mom) {
