@@ -77,7 +77,6 @@ router.get("/get-mom", async (req, res) => {
   }
 });
 
-
 router.get("/get-mom-by-id/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
@@ -93,7 +92,7 @@ router.get("/get-mom-by-id/:momId", async (req, res) => {
   }
 });
 
-router.get("/get-mom/:userId", async (req, res) => {
+router.get("/get-latest-mom/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const userRoles = req.user?.roles || [];
@@ -139,7 +138,6 @@ router.get("/get-mom/:userId", async (req, res) => {
       return res.status(403).json({ error: "Forbidden - Unauthorized user" });
     }
 
-    // If the user is not admin, restrict data to their userId if no roles match
     if (!userRoles.includes("admin") && Object.keys(query).length === 1) {
       // Only state exists
       query.userId = userId;
@@ -174,7 +172,7 @@ router.get("/get-mom-by-constituency/:constituency", async (req, res) => {
   try {
     const { constituency } = req.params;
 
-    const moms = await Mom.find({ constituency }).populate("userId");
+    const moms = await Mom.find({ constituency }).populate("userId").sort({ createdAt: -1 });
 
     const momCount = await Mom.countDocuments({ constituency });
 
@@ -188,7 +186,7 @@ router.get("/get-mom-by-zone/:zone", async (req, res) => {
   try {
     const { zone } = req.params;
 
-    const moms = await Mom.find({ zone }).populate("userId");
+    const moms = await Mom.find({ zone }).populate("userId").sort({ createdAt: -1 });
 
     const momCount = await Mom.countDocuments({ zone });
 
@@ -234,7 +232,7 @@ router.get("/get-mom-count-by-constituency/:constituency", async (req, res) => {
 router.get("/get-mom-by-pc/:pc", async (req, res) => {
   try {
     const { pc } = req.params;
-    const moms = await Mom.find({ pc }).populate("userId");
+    const moms = await Mom.find({ pc }).populate("userId").sort({ createdAt: -1 }); ;
 
     const momCount = moms.length;
 
