@@ -139,7 +139,7 @@ router.put("/update-password", async (req, res, next) => {
 router.put("/update-user/:userId", async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { email, userName, roles } = req.body;
+    const { email, userName, roles, location } = req.body;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -149,6 +149,7 @@ router.put("/update-user/:userId", async (req, res, next) => {
     user.email = email || user.email;
     user.userName = userName || user.userName;
     user.roles = roles || user.roles;
+    user.location = location || user.location;
 
     await user.save();
     res.status(200).json({ message: "User updated successfully" });

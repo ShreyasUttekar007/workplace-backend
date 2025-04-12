@@ -37,6 +37,106 @@ router.post("/mom", async (req, res) => {
   }
 });
 
+router.get("/missing-gmap", async (req, res) => {
+  try {
+    const startDate = new Date("2025-04-09T00:00:00Z");
+    const endDate = new Date();
+
+    const entries = await Mom.find({
+      gMapLocation: { $in: [null, "", undefined] },
+      createdAt: {
+        $gte: startDate,
+        $lte: endDate,
+      },
+    }).populate("userId", "userName email location");
+
+    const filteredEntries = entries.filter(entry => {
+      if (!entry.userId || !entry.state) return false;
+      const userLocation = entry.userId.location?.trim().toLowerCase();
+      const entryState = entry.state?.trim().toLowerCase();
+      return userLocation === entryState;
+    });
+
+    const grouped = {};
+    const userList = [];
+
+    for (const entry of filteredEntries) {
+      const user = entry.userId;
+      if (!user?._id) continue;
+
+      if (!grouped[user._id]) {
+        userList.push({
+          userId: user._id,
+          userName: user.userName,
+          email: user.email,
+          location: user.location,
+        });
+
+        grouped[user._id] = {
+          userId: user._id,
+          userName: user.userName,
+          email: user.email,
+          location: user.location,
+          missingEntries: [],
+        };
+      }
+
+      grouped[user._id].missingEntries.push({
+        id: entry._id,
+        state: entry.state,
+        constituency: entry.constituency,
+        createdAt: entry.createdAt,
+      });
+    }
+    res.status(200).json({
+      groupedEntries: Object.values(grouped),
+      usersMissingGMap: userList,
+    });
+
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: "Something went wrong." });
+  }
+});
+
+router.get("/get-users-with-zero-meeting", async (req, res) => {
+  try {
+    // Step 1: Get all users with department Soul Field
+    const soulFieldEmployees = await EmployeeLeave.find({
+      department: "Soul Field",
+    });
+
+    const soulEmails = soulFieldEmployees
+      .map((emp) => emp.employeeEmail?.toLowerCase())
+      .filter(Boolean);
+
+    // Step 2: Get all users who have meetings (userId referenced in Mom)
+    const usersWithMeetings = await Mom.distinct("userId");
+
+    // Step 3: Get user details for all soulEmails
+    const users = await User.find({
+      email: { $in: soulEmails },
+      _id: { $nin: usersWithMeetings }, // exclude users who already have meetings
+    });
+
+    // Step 4: Attach department and return
+    const emailToDeptMap = {};
+    soulFieldEmployees.forEach((emp) => {
+      emailToDeptMap[emp.employeeEmail.toLowerCase()] = emp.department;
+    });
+
+    const result = users.map((user) => ({
+      name: user.name,
+      email: user.email,
+      department: emailToDeptMap[user.email.toLowerCase()] || null,
+    }));
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/get-mom", async (req, res) => {
   try {
     const moms = await Mom.find().populate("userId");
