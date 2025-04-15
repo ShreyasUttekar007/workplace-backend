@@ -3,7 +3,6 @@ const { Schema } = mongoose;
 const Booths = require("../models/BoothList");
 const BoothsAp = require("../models/BoothListAP");
 
-
 const NewMomSchema = new Schema(
   {
     userId: {
@@ -94,10 +93,41 @@ const NewMomSchema = new Schema(
       trim: true,
     },
     peoplePhoto: {
-      type: [String], 
+      type: [String],
     },
     leaderPhoto: {
       type: String,
+    },
+    typeOfMeeting: {
+      type: String,
+      trim: true,
+    },
+    eventName: {
+      type: String,
+      trim: true,
+    },
+    eventDetails: {
+      type: String,
+      trim: true,
+    },
+    eventLocation: {
+      type: String,
+      trim: true,
+    },
+    eventPocName: {
+      type: String,
+      trim: true,
+    },
+    eventPocNumber: {
+      type: String,
+      trim: true,
+    },
+    remarks: {
+      type: String,
+      trim: true,
+    },
+    eventPhotos: {
+      type: [String],
     },
   },
   { timestamps: true }
@@ -106,7 +136,10 @@ const NewMomSchema = new Schema(
 NewMomSchema.pre("save", async function (next) {
   try {
     // Fetch email of the userId if needed
-    const user = await mongoose.model("User").findById(this.userId).select("email");
+    const user = await mongoose
+      .model("User")
+      .findById(this.userId)
+      .select("email");
 
     let stateData;
 
@@ -129,7 +162,6 @@ NewMomSchema.pre("save", async function (next) {
     next(error); // Properly pass errors to the next middleware
   }
 });
-
 
 const NewMom = mongoose.model("NewMom", NewMomSchema);
 module.exports = NewMom;
