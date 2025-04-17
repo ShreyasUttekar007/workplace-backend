@@ -28,12 +28,12 @@ const travelRoutes = require("./routes/travelRecords");
 const holidayRoutes = require("./routes/mahaHolidayCalendar");
 const cabRoutes = require("./routes/cabRequests");
 const newMomRoutes = require("./routes/newMom");
+const newProbableJoinee = require("./routes/probableJoinees");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
 const app = express();
 require("./routes/leaveReportJob"); // Import and execute the cron job
-
 
 app.use(
   cors({
@@ -112,6 +112,7 @@ app.use("/api/travel", travelRoutes);
 app.use("/api/holiday", holidayRoutes);
 app.use("/api/cab", cabRoutes);
 app.use("/api/new-mom", newMomRoutes);
+app.use("/api/probable-joinee", newProbableJoinee);
 
 
 if (process.env.NODE_ENV === "production") {
