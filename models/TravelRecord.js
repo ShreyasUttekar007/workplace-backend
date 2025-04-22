@@ -24,10 +24,8 @@ const TravelRequestSchema = new Schema(
     eventDetails: { type: String, trim: true },
     eventLocation: { type: String, trim: true },
     remarks: { type: String, trim: true },
-    phoneNumber: { type: String, trim: true },
     travelInstructedBy: { type: String, trim: true },
     eventName: { type: String, trim: true },
-    phoneNumber: { type: String, trim: true },
     name: {
       type: String,
       trim: true,
