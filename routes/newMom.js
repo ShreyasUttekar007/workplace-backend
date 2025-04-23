@@ -37,9 +37,72 @@ router.post("/mom", async (req, res) => {
   }
 });
 
+router.get("/get-latest-mom/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userRoles = req.user?.roles || [];
+    const userLocation = req.user?.location;
+
+    // Construct the query dynamically
+    const query = {};
+
+    // Ensure state-based filtering for all users, including admin
+    if (userLocation === "Maharashtra" || userLocation === "Andhra Pradesh") {
+      query.state = userLocation;
+    }
+
+    // Fetch user info
+    const user = await User.findById(req.user._id).select("roles location");
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Filter roles for each category
+    const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
+    const userDistrictRoles = userRoles.filter((role) =>
+      districtRoles.includes(role)
+    );
+    const userConstituencyRoles = userRoles.filter((role) =>
+      assemblyConstituencies.includes(role)
+    );
+    const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
+      parliamentaryConstituencyRoles.includes(role)
+    );
+
+    if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
+    if (userDistrictRoles.length > 0)
+      query.district = { $in: userDistrictRoles };
+    if (userConstituencyRoles.length > 0)
+      query.constituency = { $in: userConstituencyRoles };
+    if (userParliamentaryConstituencyRoles.length > 0) {
+      query.pc = { $in: userParliamentaryConstituencyRoles };
+    }
+
+    // Admins should see all reports in their state, not just their userId
+    if (!userRoles.includes("admin") && userId !== req.user._id.toString()) {
+      return res.status(403).json({ error: "Forbidden - Unauthorized user" });
+    }
+
+    if (!userRoles.includes("admin") && Object.keys(query).length === 1) {
+      // Only state exists
+      query.userId = userId;
+    }
+    console.log("Constructed Query: ", query);
+
+    // Fetch data from DB
+    const reports = await Mom.find(query)
+      .populate("userId")
+      .sort({ createdAt: -1 });
+    return res.status(200).json(reports);
+  } catch (error) {
+    console.error("Error fetching report data: ", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/missing-gmap", async (req, res) => {
   try {
-    const startDate = new Date("2025-04-09T00:00:00Z");
+    const startDate = new Date("2025-04-12T00:00:00Z");
     const endDate = new Date();
 
     const entries = await Mom.find({
@@ -139,19 +202,37 @@ router.get("/get-users-with-zero-meeting", async (req, res) => {
 
 router.get("/get-mom", async (req, res) => {
   try {
-    const moms = await Mom.find().populate("userId");
+    const { fromDate, toDate } = req.query;
 
-    // Extract all emails
-    const userEmails = moms
+    // Logged-in user's location from auth middleware
+    const loggedInUserLocation = req.user?.location?.toLowerCase(); // e.g. "maharashtra"
+
+    const filter = {};
+
+    if (fromDate && toDate) {
+      filter.createdAt = {
+        $gte: new Date(new Date(fromDate).setHours(0, 0, 0, 0)),
+        $lte: new Date(new Date(toDate).setHours(23, 59, 59, 999)),
+      };
+    }
+
+    // Fetch MoMs with user info
+    const moms = await Mom.find(filter).populate("userId");
+
+    // Filter based on userId.location
+    const filteredMoms = moms.filter(
+      (mom) =>
+        mom.userId?.location?.toLowerCase() === loggedInUserLocation
+    );
+
+    const userEmails = filteredMoms
       .map((mom) => mom.userId?.email?.toLowerCase())
       .filter(Boolean);
 
-    // Fetch all employees in one go
     const employeeData = await EmployeeLeave.find({
       employeeEmail: { $in: userEmails },
     });
 
-    // Create a quick lookup
     const employeeMap = {};
     employeeData.forEach((emp) => {
       employeeMap[emp.employeeEmail.toLowerCase()] = {
@@ -160,7 +241,7 @@ router.get("/get-mom", async (req, res) => {
       };
     });
 
-    const result = moms.map((mom) => {
+    const result = filteredMoms.map((mom) => {
       const email = mom.userId?.email?.toLowerCase();
       const managerData = email ? employeeMap[email] : null;
 
@@ -192,68 +273,7 @@ router.get("/get-mom-by-id/:momId", async (req, res) => {
   }
 });
 
-router.get("/get-latest-mom/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const userRoles = req.user?.roles || [];
-    const userLocation = req.user?.location;
 
-    // Construct the query dynamically
-    const query = {};
-
-    // Ensure state-based filtering for all users, including admin
-    if (userLocation === "Maharashtra" || userLocation === "Andhra Pradesh") {
-      query.state = userLocation;
-    }
-
-    // Fetch user info
-    const user = await User.findById(req.user._id).select("roles location");
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Filter roles for each category
-    const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
-    const userDistrictRoles = userRoles.filter((role) =>
-      districtRoles.includes(role)
-    );
-    const userConstituencyRoles = userRoles.filter((role) =>
-      assemblyConstituencies.includes(role)
-    );
-    const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
-      parliamentaryConstituencyRoles.includes(role)
-    );
-
-    if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
-    if (userDistrictRoles.length > 0)
-      query.district = { $in: userDistrictRoles };
-    if (userConstituencyRoles.length > 0)
-      query.constituency = { $in: userConstituencyRoles };
-    if (userParliamentaryConstituencyRoles.length > 0) {
-      query.pc = { $in: userParliamentaryConstituencyRoles };
-    }
-
-    // Admins should see all reports in their state, not just their userId
-    if (!userRoles.includes("admin") && userId !== req.user._id.toString()) {
-      return res.status(403).json({ error: "Forbidden - Unauthorized user" });
-    }
-
-    if (!userRoles.includes("admin") && Object.keys(query).length === 1) {
-      // Only state exists
-      query.userId = userId;
-    }
-    console.log("Constructed Query: ", query);
-
-    // Fetch data from DB
-    const reports = await Mom.find(query)
-      .populate("userId")
-      .sort({ createdAt: -1 });
-    return res.status(200).json(reports);
-  } catch (error) {
-    console.error("Error fetching report data: ", error);
-    return res.status(500).json({ error: error.message });
-  }
-});
 
 router.get("/get-mom-by-party/:partyName", async (req, res) => {
   try {
