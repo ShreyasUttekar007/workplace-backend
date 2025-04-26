@@ -202,13 +202,10 @@ router.get("/get-users-with-zero-meeting", async (req, res) => {
 
 router.get("/get-mom", async (req, res) => {
   try {
-    const { fromDate, toDate } = req.query;
-
-    // Logged-in user's location from auth middleware
-    const loggedInUserLocation = req.user?.location?.toLowerCase(); // e.g. "maharashtra"
+    const { fromDate, toDate, constituency } = req.query;
+    const loggedInUserLocation = req.user?.location?.toLowerCase();
 
     const filter = {};
-
     if (fromDate && toDate) {
       filter.createdAt = {
         $gte: new Date(new Date(fromDate).setHours(0, 0, 0, 0)),
@@ -219,12 +216,19 @@ router.get("/get-mom", async (req, res) => {
     // Fetch MoMs with user info
     const moms = await Mom.find(filter).populate("userId");
 
-    // Filter based on userId.location
-    const filteredMoms = moms.filter(
-      (mom) =>
-        mom.userId?.location?.toLowerCase() === loggedInUserLocation
+    // Filter based on user location (state)
+    let filteredMoms = moms.filter(
+      (mom) => mom.userId?.location?.toLowerCase() === loggedInUserLocation
     );
 
+    // If constituency filter is given, apply it
+    if (constituency) {
+      filteredMoms = filteredMoms.filter(
+        (mom) => mom.constituency?.toLowerCase() === constituency.toLowerCase()
+      );
+    }
+
+    // Build employee mapping
     const userEmails = filteredMoms
       .map((mom) => mom.userId?.email?.toLowerCase())
       .filter(Boolean);
@@ -241,22 +245,51 @@ router.get("/get-mom", async (req, res) => {
       };
     });
 
-    const result = filteredMoms.map((mom) => {
+    // Grouping logic
+    const grouped = {};
+
+    filteredMoms.forEach((mom) => {
+      const key = `${mom.pc}-${mom.ac}-${mom.userId?._id}-${mom.constituency}`;
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          pc: mom.pc,
+          ac: mom.ac,
+          constituency: mom.constituency || "",
+          reportingManager: null,
+          reportingManagerEmail: null,
+          userName: mom.userId?.userName || "Unknown",
+          yes: 0,
+          no: 0,
+          nonShsCount: 0,
+          createdAt: mom.createdAt,
+        };
+      }
+
+      if (mom.makeMom === "Yes") {
+        grouped[key].yes++;
+      } else if (mom.makeMom === "No") {
+        grouped[key].no++;
+      }
+
+      if (mom.partyName && mom.partyName.toLowerCase() !== "shs") {
+        grouped[key].nonShsCount++;
+      }
+
       const email = mom.userId?.email?.toLowerCase();
       const managerData = email ? employeeMap[email] : null;
-
-      return {
-        ...mom.toObject(),
-        reportingManager: managerData?.reportingManager || null,
-        reportingManagerEmail: managerData?.reportingManagerEmail || null,
-      };
+      grouped[key].reportingManager = managerData?.reportingManager || null;
+      grouped[key].reportingManagerEmail = managerData?.reportingManagerEmail || null;
     });
 
-    res.status(200).json(result);
+    const result = Object.values(grouped);
+
+    res.status(200).json({ data: result });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 router.get("/get-mom-by-id/:momId", async (req, res) => {
   try {
