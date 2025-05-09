@@ -8,6 +8,10 @@ const AcReportSchema = new Schema(
       ref: "User",
       required: true,
     },
+    state: {
+      type: String,
+      trim: true,
+    },
     zone: {
       type: String,
       required: [true, "Please select a Zone"],
@@ -35,6 +39,9 @@ const AcReportSchema = new Schema(
       type: String,
     },
     boothReport: {
+      type: String,
+    },
+    pcMom: {
       type: String,
     },
   },
