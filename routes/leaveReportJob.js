@@ -47,9 +47,12 @@ const generatePDF = (leaveData) => {
       "Manager",
       "Leave Type",
       "Reason",
+      "Status", // New column
     ];
-    const columnWidths = [40, 100, 80, 80, 100, 100, 300];
-    const maxRowsPerPage = 7;
+
+    // Adjusted column widths to fit landscape A4
+    const columnWidths = [30, 90, 70, 90, 90, 70, 230, 70];
+    const maxRowsPerPage = 7; // Adjust for better layout
     let y = doc.y + 10;
     let currentRow = 0;
 
@@ -91,6 +94,7 @@ const generatePDF = (leaveData) => {
         leave.receiverName || "N/A",
         leave.leaveType,
         leave.reasonForLeave || "N/A",
+        leave.leaveStatus || "N/A", // New value
       ];
 
       values.forEach((value, i) => {
@@ -115,6 +119,7 @@ const generatePDF = (leaveData) => {
     writeStream.on("error", reject);
   });
 };
+
 
 const sendEmailWithPDF = async (filePath, leaveData) => {
   const recipients = [
@@ -159,7 +164,7 @@ const fetchAndSendLeaveReport = async () => {
   }
 };
 
-cron.schedule("00 11 * * *", fetchAndSendLeaveReport, {
+cron.schedule("00 12 * * *", fetchAndSendLeaveReport, {
   timezone: "Asia/Kolkata",
 });
 

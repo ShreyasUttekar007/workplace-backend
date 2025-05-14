@@ -113,7 +113,7 @@ router.get("/missing-gmap", async (req, res) => {
       },
     }).populate("userId", "userName email location");
 
-    const filteredEntries = entries.filter(entry => {
+    const filteredEntries = entries.filter((entry) => {
       if (!entry.userId || !entry.state) return false;
       const userLocation = entry.userId.location?.trim().toLowerCase();
       const entryState = entry.state?.trim().toLowerCase();
@@ -155,7 +155,6 @@ router.get("/missing-gmap", async (req, res) => {
       groupedEntries: Object.values(grouped),
       usersMissingGMap: userList,
     });
-
   } catch (err) {
     console.error("Error:", err);
     res.status(500).json({ error: "Something went wrong." });
@@ -272,14 +271,19 @@ router.get("/get-mom", async (req, res) => {
         grouped[key].no++;
       }
 
-      if (mom.partyName && mom.partyName.toLowerCase() !== "shs") {
+      if (
+        mom.partyName &&
+        mom.partyName.toLowerCase() !== "shivsena" &&
+        mom.partyName.toLowerCase() !== "shs"
+      ) {
         grouped[key].nonShsCount++;
       }
 
       const email = mom.userId?.email?.toLowerCase();
       const managerData = email ? employeeMap[email] : null;
       grouped[key].reportingManager = managerData?.reportingManager || null;
-      grouped[key].reportingManagerEmail = managerData?.reportingManagerEmail || null;
+      grouped[key].reportingManagerEmail =
+        managerData?.reportingManagerEmail || null;
     });
 
     const result = Object.values(grouped);
@@ -289,7 +293,6 @@ router.get("/get-mom", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 router.get("/get-mom-by-id/:momId", async (req, res) => {
   try {
@@ -305,8 +308,6 @@ router.get("/get-mom-by-id/:momId", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-
 
 router.get("/get-mom-by-party/:partyName", async (req, res) => {
   try {
@@ -325,7 +326,9 @@ router.get("/get-mom-by-constituency/:constituency", async (req, res) => {
   try {
     const { constituency } = req.params;
 
-    const moms = await Mom.find({ constituency }).populate("userId").sort({ createdAt: -1 });
+    const moms = await Mom.find({ constituency })
+      .populate("userId")
+      .sort({ createdAt: -1 });
 
     const momCount = await Mom.countDocuments({ constituency });
 
@@ -339,7 +342,9 @@ router.get("/get-mom-by-zone/:zone", async (req, res) => {
   try {
     const { zone } = req.params;
 
-    const moms = await Mom.find({ zone }).populate("userId").sort({ createdAt: -1 });
+    const moms = await Mom.find({ zone })
+      .populate("userId")
+      .sort({ createdAt: -1 });
 
     const momCount = await Mom.countDocuments({ zone });
 
@@ -385,7 +390,9 @@ router.get("/get-mom-count-by-constituency/:constituency", async (req, res) => {
 router.get("/get-mom-by-pc/:pc", async (req, res) => {
   try {
     const { pc } = req.params;
-    const moms = await Mom.find({ pc }).populate("userId").sort({ createdAt: -1 }); ;
+    const moms = await Mom.find({ pc })
+      .populate("userId")
+      .sort({ createdAt: -1 });
 
     const momCount = moms.length;
 
