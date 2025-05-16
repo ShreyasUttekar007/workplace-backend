@@ -10,10 +10,8 @@ const {
 } = require("../models/roles");
 const authenticateUser = require("../middleware/authenticateUser");
 const mongoose = require("mongoose");
-const multer = require('multer');
+const multer = require("multer");
 const upload = multer();
-
-
 
 router.use(authenticateUser);
 
@@ -36,6 +34,87 @@ router.post("/joinee", async (req, res) => {
     const newMom = await ProbableJoinee.create(momData);
     res.status(201).json(newMom);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/joinee-summary", async (req, res) => {
+  try {
+    const joinees = await ProbableJoinee.find({});
+
+    const summary = {
+      zone: {},
+      pc: {},
+      constituency: {},
+    };
+
+    const getAreaCounts = (areaOfInfluence = "") => {
+      const lower = areaOfInfluence.toLowerCase();
+      return {
+        ward: lower.includes("ward") ? 1 : 0,
+        booth: lower.includes("booth") ? 1 : 0,
+        ac: lower.includes("assembly constituency") ? 1 : 0,
+        pc: lower.includes("parliamentary constituency") ? 1 : 0,
+      };
+    };
+
+    const getStatusCounts = (joinee) => {
+      return {
+        discussionNotInitiated:
+          joinee.discussionWithJoinee === "Discussion Not Initiated" ? 1 : 0,
+        discussionInitiated:
+          joinee.discussionWithJoinee === "Discussion Initiated" ? 1 : 0,
+        leaderJoined: joinee.discussionWithJoinee === "Leader Joined" ? 1 : 0,
+      };
+    };
+
+    const updateSummary = (container, key, counts) => {
+      if (!key) return;
+      if (!container[key]) {
+        container[key] = {
+          total: 0,
+          ward: 0,
+          booth: 0,
+          ac: 0,
+          pc: 0,
+          discussionNotInitiated: 0,
+          discussionInitiated: 0,
+          leaderJoined: 0,
+        };
+      }
+      for (const k in counts) {
+        container[key][k] += counts[k];
+      }
+    };
+
+    for (const joinee of joinees) {
+      const areaCounts = getAreaCounts(joinee.areaOfInfluence);
+      const statusCounts = getStatusCounts(joinee);
+
+      const baseCounts = {
+        total: 1,
+        ward: areaCounts.ward,
+        booth: areaCounts.booth,
+        ac: areaCounts.ac,
+        pc: areaCounts.pc,
+        discussionNotInitiated: statusCounts.discussionNotInitiated,
+        discussionInitiated: statusCounts.discussionInitiated,
+        leaderJoined: statusCounts.leaderJoined,
+      };
+
+      updateSummary(summary.zone, joinee.zone, baseCounts);
+      updateSummary(summary.pc, joinee.pc, baseCounts);
+      updateSummary(summary.constituency, joinee.constituency, baseCounts);
+
+      // Store parent PC name in the AC record
+      if (joinee.constituency && joinee.pc) {
+        summary.constituency[joinee.constituency].pcName = joinee.pc;
+      }
+    }
+
+    res.json(summary);
+  } catch (error) {
+    console.error("Error in /joinee-summary:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -118,24 +197,26 @@ router.get("/get-joinee-by-id/:joineeId", async (req, res) => {
   }
 });
 
-router.put('/update-joinee/:id', upload.none(), async (req, res) => {
+router.put("/update-joinee/:id", upload.none(), async (req, res) => {
   try {
     const { id } = req.params;
     const momData = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Invalid Joinee ID' });
+      return res.status(400).json({ error: "Invalid Joinee ID" });
     }
 
-    const updatedJoinee = await ProbableJoinee.findByIdAndUpdate(id, momData, { new: true });
+    const updatedJoinee = await ProbableJoinee.findByIdAndUpdate(id, momData, {
+      new: true,
+    });
 
     if (!updatedJoinee) {
-      return res.status(404).json({ error: 'Joinee not found' });
+      return res.status(404).json({ error: "Joinee not found" });
     }
 
     res.status(200).json(updatedJoinee);
   } catch (error) {
-    console.error('Error updating joinee:', error);
+    console.error("Error updating joinee:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -152,6 +233,5 @@ router.put('/update-joinee/:id', upload.none(), async (req, res) => {
 //     res.status(500).json({ error: error.message });
 //   }
 // });
-
 
 module.exports = router;
