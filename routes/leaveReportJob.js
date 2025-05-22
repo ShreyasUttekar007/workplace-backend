@@ -46,15 +46,22 @@ const generatePDF = (leaveData) => {
       "Department",
       "Manager",
       "Leave Type",
-      "Reason",
+      "From",
+      "To",
       "Status", // New column
     ];
 
     // Adjusted column widths to fit landscape A4
-    const columnWidths = [30, 90, 70, 90, 90, 70, 230, 70];
+    const columnWidths = [30, 90, 70, 90, 90, 70, 90, 90, 70];
     const maxRowsPerPage = 7; // Adjust for better layout
     let y = doc.y + 10;
     let currentRow = 0;
+
+    const formatDate = (dateString) => {
+      if (!dateString) return "N/A";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-GB"); // formats as DD/MM/YYYY
+    };
 
     const drawTableHeaders = () => {
       y = doc.y + 10;
@@ -93,8 +100,9 @@ const generatePDF = (leaveData) => {
         leave.department || "N/A",
         leave.receiverName || "N/A",
         leave.leaveType,
-        leave.reasonForLeave || "N/A",
-        leave.leaveStatus || "N/A", // New value
+        formatDate(leave.startDate),
+        formatDate(leave.endDate),
+        leave.leaveStatus || "N/A",
       ];
 
       values.forEach((value, i) => {
@@ -120,10 +128,12 @@ const generatePDF = (leaveData) => {
   });
 };
 
-
 const sendEmailWithPDF = async (filePath, leaveData) => {
   const recipients = [
-    "stc.portal@showtimeconsulting.in", "saumitra@showtimeconsulting.in", "prasad.p@showtimeconsulting.in", "anuragsaxena@showtimeconsulting.in",
+    "stc.portal@showtimeconsulting.in",
+    "saumitra@showtimeconsulting.in",
+    "prasad.p@showtimeconsulting.in",
+    "anuragsaxena@showtimeconsulting.in",
   ];
   const emailContent = leaveData.length
     ? `Attached is the daily leave report. Total Employees on Leave: ${leaveData.length}`
@@ -164,7 +174,7 @@ const fetchAndSendLeaveReport = async () => {
   }
 };
 
-cron.schedule("00 12 * * *", fetchAndSendLeaveReport, {
+cron.schedule("15 12 * * *", fetchAndSendLeaveReport, {
   timezone: "Asia/Kolkata",
 });
 
