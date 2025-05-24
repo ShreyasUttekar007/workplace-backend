@@ -207,7 +207,7 @@ router.get("/interventions/counts", authenticateUser, async (req, res) => {
     // Apply additional filters based on query parameters
     if (constituency) matchFilter.constituency = constituency;
     if (district) matchFilter.district = district;
-    if (zone) matchFilter.zone = zone.replace(/\+/g, " "); // Decode '+' as space
+    if (zone) matchFilter.zone = zone; 
     if (interventionType) matchFilter.interventionType = interventionType;
     if (interventionAction) matchFilter.interventionAction = interventionAction;
 
