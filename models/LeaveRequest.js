@@ -83,6 +83,14 @@ const LeaveRequestSchema = new Schema(
       type: String,
       trim: true,
     },
+    reportingManagerEmail1: {
+      type: String,
+      trim: true,
+    },
+    reportingManager1: {
+      type: String,
+      trim: true,
+    },
     location: {
       type: String,
       trim: true,

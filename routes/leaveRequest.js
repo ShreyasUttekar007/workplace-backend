@@ -48,6 +48,9 @@ router.post("/leave", async (req, res) => {
     if (momData.reportingManagerEmail2) {
       recipients.add(momData.reportingManagerEmail2);
     }
+    if (momData.reportingManagerEmail1) {
+      recipients.add(momData.reportingManagerEmail1);
+    }
     
     // Convert Set back to an array to ensure uniqueness
     const msg = {
