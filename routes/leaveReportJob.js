@@ -132,7 +132,7 @@ const sendEmailWithPDF = async (filePath, leaveData) => {
   const recipients = [
     "stc.portal@showtimeconsulting.in",
     "saumitra@showtimeconsulting.in",
-    "prasad.p@showtimeconsulting.in",
+    "sonkar.shalini@showtimeconsulting.in",
     "anuragsaxena@showtimeconsulting.in",
   ];
   const emailContent = leaveData.length
