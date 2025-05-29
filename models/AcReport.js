@@ -35,6 +35,12 @@ const AcReportSchema = new Schema(
     document: {
       type: String,
     },
+    apAcReports: {
+      type: String,
+    },
+    acVsCubReports: {
+      type: String,
+    },
     form20Document: {
       type: String,
     },

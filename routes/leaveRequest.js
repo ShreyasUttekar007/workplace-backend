@@ -52,7 +52,6 @@ router.post("/leave", async (req, res) => {
       recipients.add(momData.reportingManagerEmail1);
     }
     
-    // Convert Set back to an array to ensure uniqueness
     const msg = {
       to: [...recipients],
       from: "stc.portal@showtimeconsulting.in",
