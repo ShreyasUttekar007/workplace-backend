@@ -102,6 +102,10 @@ const NewMomSchema = new Schema(
       type: String,
       trim: true,
     },
+    meetingStatus: {
+      type: String,
+      trim: true,
+    },
     eventName: {
       type: String,
       trim: true,
