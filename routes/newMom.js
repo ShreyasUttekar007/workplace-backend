@@ -206,9 +206,9 @@ router.get("/get-mom", async (req, res) => {
 
     const filter = {};
     if (fromDate && toDate) {
-      filter.createdAt = {
-        $gte: new Date(new Date(fromDate).setHours(0, 0, 0, 0)),
-        $lte: new Date(new Date(toDate).setHours(23, 59, 59, 999)),
+      filter.dom = {
+        $gte: fromDate,
+        $lte: toDate,
       };
     }
 
@@ -261,7 +261,7 @@ router.get("/get-mom", async (req, res) => {
           yes: 0,
           no: 0,
           nonShsCount: 0,
-          createdAt: mom.createdAt,
+          dom: mom.dom,
         };
       }
 
