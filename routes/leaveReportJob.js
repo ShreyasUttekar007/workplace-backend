@@ -131,7 +131,6 @@ const generatePDF = (leaveData) => {
 const sendEmailWithPDF = async (filePath, leaveData) => {
   const recipients = [
     "stc.portal@showtimeconsulting.in",
-    "saumitra@showtimeconsulting.in",
     "sonkar.shalini@showtimeconsulting.in",
     "anuragsaxena@showtimeconsulting.in",
   ];
@@ -174,7 +173,7 @@ const fetchAndSendLeaveReport = async () => {
   }
 };
 
-cron.schedule("32 11 * * *", fetchAndSendLeaveReport, {
+cron.schedule("30 11 * * *", fetchAndSendLeaveReport, {
   timezone: "Asia/Kolkata",
 });
 
