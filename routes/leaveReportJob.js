@@ -133,6 +133,8 @@ const sendEmailWithPDF = async (filePath, leaveData) => {
     "stc.portal@showtimeconsulting.in",
     "sonkar.shalini@showtimeconsulting.in",
     "anuragsaxena@showtimeconsulting.in",
+    "shreyas.uttekar@showtimeconsulting.in",
+    "uttekarshreyas007@gmail.com",
   ];
   const emailContent = leaveData.length
     ? `Attached is the daily leave report. Total Employees on Leave: ${leaveData.length}`
@@ -173,7 +175,7 @@ const fetchAndSendLeaveReport = async () => {
   }
 };
 
-cron.schedule("30 11 * * *", fetchAndSendLeaveReport, {
+cron.schedule("50 11 * * *", fetchAndSendLeaveReport, {
   timezone: "Asia/Kolkata",
 });
 
