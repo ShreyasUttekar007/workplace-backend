@@ -132,30 +132,40 @@ const sendEmailWithPDF = async (filePath, leaveData) => {
   const recipients = [
     "stc.portal@showtimeconsulting.in",
     "sonkar.shalini@showtimeconsulting.in",
-    "shreyas.uttekar@showtimeconsulting.in",
-    "shalinisonkariitr@gmail.com",
+    "anuragsaxena@showtimeconsulting.in",
+    "roopesh.roopesh@showtimeconsulting.in",
   ];
   const emailContent = leaveData.length
     ? `Attached is the daily leave report. Total Employees on Leave: ${leaveData.length}`
     : "No employees are on leave today.";
 
-  const msg = {
-    to: recipients,
-    from: "stc.portal@showtimeconsulting.in",
-    subject: "Daily Leave Report",
-    text: emailContent,
-    attachments: [
-      {
-        content: fs.readFileSync(filePath).toString("base64"),
-        filename: "leave_report.pdf",
-        type: "application/pdf",
-        disposition: "attachment",
-      },
-    ],
-  };
+  // Read attachment only once
+  const attachmentContent = fs.readFileSync(filePath).toString("base64");
 
-  await sgMail.send(msg);
+  for (const toEmail of recipients) {
+    const msg = {
+      to: toEmail,
+      from: "stc.portal@showtimeconsulting.in",
+      subject: "Daily Leave Report",
+      text: emailContent,
+      attachments: [
+        {
+          content: attachmentContent,
+          filename: "leave_report.pdf",
+          type: "application/pdf",
+          disposition: "attachment",
+        },
+      ],
+    };
+    try {
+      await sgMail.send(msg);
+      console.log(`Email sent to ${toEmail}`);
+    } catch (err) {
+      console.error(`Failed to send to ${toEmail}:`, err.message);
+    }
+  }
 };
+
 
 const fetchAndSendLeaveReport = async () => {
   try {
@@ -174,7 +184,7 @@ const fetchAndSendLeaveReport = async () => {
   }
 };
 
-cron.schedule("54 11 * * *", fetchAndSendLeaveReport, {
+cron.schedule("30 11 * * *", fetchAndSendLeaveReport, {
   timezone: "Asia/Kolkata",
 });
 
