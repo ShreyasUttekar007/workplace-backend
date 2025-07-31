@@ -152,8 +152,9 @@ NewMomSchema.pre("save", async function (next) {
       stateData = await Booths.findOne({ constituency: this.constituency });
     } else if (this.state === "Andhra Pradesh") {
       stateData = await BoothsAp.findOne({ constituency: this.constituency });
+    } else if (this.state === "Bengal") {
+      stateData = await BoothsAp.findOne({ constituency: this.constituency });
     }
-
     // If data is found, assign values
     if (stateData) {
       this.zone = stateData.zone;

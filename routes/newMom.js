@@ -47,7 +47,8 @@ router.get("/get-latest-mom/:userId", async (req, res) => {
     const query = {};
 
     // Ensure state-based filtering for all users, including admin
-    if (userLocation === "Maharashtra" || userLocation === "Andhra Pradesh") {
+    const allowedStates = ["Maharashtra", "Andhra Pradesh", "Bengal"]; // <-- Added Bengal
+    if (allowedStates.includes(userLocation)) {
       query.state = userLocation;
     }
 
@@ -87,12 +88,14 @@ router.get("/get-latest-mom/:userId", async (req, res) => {
       // Only state exists
       query.userId = userId;
     }
+
     console.log("Constructed Query: ", query);
 
     // Fetch data from DB
     const reports = await Mom.find(query)
       .populate("userId")
       .sort({ createdAt: -1 });
+
     return res.status(200).json(reports);
   } catch (error) {
     console.error("Error fetching report data: ", error);
