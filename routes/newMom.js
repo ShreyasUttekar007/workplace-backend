@@ -205,39 +205,60 @@ router.get("/get-users-with-zero-meeting", async (req, res) => {
 router.get("/get-mom", async (req, res) => {
   try {
     const { fromDate, toDate, constituency } = req.query;
-    const loggedInUserLocation = req.user?.location?.toLowerCase();
+    const userRoles = req.user?.roles || [];
+    const userLocation = req.user?.location;
+    const userId = req.user?._id?.toString();
 
-    const filter = {};
+    // Allowed states
+    const allowedStates = ["Maharashtra", "Andhra Pradesh", "Bengal"];
+
+    // Build MongoDB query
+    const query = {};
+
+    // State/location-based filtering for all users
+    if (allowedStates.includes(userLocation)) {
+      query.state = userLocation;
+    }
+
+    // Fetch user info
+    const user = await User.findById(userId).select("roles location");
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Role-based filtering logic
+    const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
+    const userDistrictRoles = userRoles.filter((role) => districtRoles.includes(role));
+    const userConstituencyRoles = userRoles.filter((role) => assemblyConstituencies.includes(role));
+    const userParliamentaryConstituencyRoles = userRoles.filter((role) => parliamentaryConstituencyRoles.includes(role));
+
+    if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
+    if (userDistrictRoles.length > 0) query.district = { $in: userDistrictRoles };
+    if (userConstituencyRoles.length > 0) query.constituency = { $in: userConstituencyRoles };
+    if (userParliamentaryConstituencyRoles.length > 0) query.pc = { $in: userParliamentaryConstituencyRoles };
+
+    // Date filtering
     if (fromDate && toDate) {
-      filter.dom = {
-        $gte: fromDate,
-        $lte: toDate,
-      };
+      query.dom = { $gte: fromDate, $lte: toDate };
     }
 
-    // Fetch MoMs with user info
-    const moms = await Mom.find(filter).populate("userId");
-
-    // Filter based on user location (state)
-    let filteredMoms = moms.filter(
-      (mom) => mom.userId?.location?.toLowerCase() === loggedInUserLocation
-    );
-
-    // If constituency filter is given, apply it
+    // Constituency filter (if passed)
     if (constituency) {
-      filteredMoms = filteredMoms.filter(
-        (mom) => mom.constituency?.toLowerCase() === constituency.toLowerCase()
-      );
+      query.constituency = constituency;
     }
 
-    // Build employee mapping
-    const userEmails = filteredMoms
-      .map((mom) => mom.userId?.email?.toLowerCase())
-      .filter(Boolean);
+    // Only allow non-admins to see their own data unless they have relevant roles
+    if (!userRoles.includes("admin") && Object.keys(query).length === 1) {
+      // Only state filter exists, so restrict to current user
+      query.userId = userId;
+    }
 
-    const employeeData = await EmployeeLeave.find({
-      employeeEmail: { $in: userEmails },
-    });
+    // Fetch and group
+    const moms = await Mom.find(query).populate("userId");
+
+    // Build employee mapping as before
+    const userEmails = moms.map((mom) => mom.userId?.email?.toLowerCase()).filter(Boolean);
+    const employeeData = await EmployeeLeave.find({ employeeEmail: { $in: userEmails } });
 
     const employeeMap = {};
     employeeData.forEach((emp) => {
@@ -247,12 +268,10 @@ router.get("/get-mom", async (req, res) => {
       };
     });
 
-    // Grouping logic
+    // Grouping logic (unchanged)
     const grouped = {};
-
-    filteredMoms.forEach((mom) => {
+    moms.forEach((mom) => {
       const key = `${mom.pc}-${mom.ac}-${mom.userId?._id}-${mom.constituency}`;
-
       if (!grouped[key]) {
         grouped[key] = {
           pc: mom.pc,
@@ -268,11 +287,8 @@ router.get("/get-mom", async (req, res) => {
         };
       }
 
-      if (mom.makeMom === "Yes") {
-        grouped[key].yes++;
-      } else if (mom.makeMom === "No") {
-        grouped[key].no++;
-      }
+      if (mom.makeMom === "Yes") grouped[key].yes++;
+      else if (mom.makeMom === "No") grouped[key].no++;
 
       if (
         mom.partyName &&
@@ -285,8 +301,7 @@ router.get("/get-mom", async (req, res) => {
       const email = mom.userId?.email?.toLowerCase();
       const managerData = email ? employeeMap[email] : null;
       grouped[key].reportingManager = managerData?.reportingManager || null;
-      grouped[key].reportingManagerEmail =
-        managerData?.reportingManagerEmail || null;
+      grouped[key].reportingManagerEmail = managerData?.reportingManagerEmail || null;
     });
 
     const result = Object.values(grouped);
@@ -296,6 +311,7 @@ router.get("/get-mom", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 router.get("/get-mom-by-id/:momId", async (req, res) => {
   try {
