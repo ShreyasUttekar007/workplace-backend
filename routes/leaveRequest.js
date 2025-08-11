@@ -42,7 +42,6 @@ router.post("/leave", async (req, res) => {
     const recipients = new Set([
       momData.receiverEmail,
       "stc.portal@showtimeconsulting.in",
-      "saumitra@showtimeconsulting.in",
     ]);
     
     if (momData.reportingManagerEmail2) {
