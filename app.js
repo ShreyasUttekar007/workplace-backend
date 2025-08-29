@@ -34,7 +34,8 @@ const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
 const app = express();
-require("./routes/leaveReportJob"); // Import and execute the cron job
+require("./routes/leaveReportJob");
+require("./routes/mahaLeaveReport");
 
 app.use(
   cors({
@@ -115,7 +116,6 @@ app.use("/api/holiday", holidayRoutes);
 app.use("/api/cab", cabRoutes);
 app.use("/api/new-mom", newMomRoutes);
 app.use("/api/probable-joinee", newProbableJoinee);
-
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "client/build")));
