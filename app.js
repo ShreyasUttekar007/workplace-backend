@@ -30,6 +30,7 @@ const holidayRoutes = require("./routes/mahaHolidayCalendar");
 const cabRoutes = require("./routes/cabRequests");
 const newMomRoutes = require("./routes/newMom");
 const newProbableJoinee = require("./routes/probableJoinees");
+const candidatesDailyActivityRoutes = require("./routes/candidatesDailyActivity");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
@@ -116,6 +117,7 @@ app.use("/api/holiday", holidayRoutes);
 app.use("/api/cab", cabRoutes);
 app.use("/api/new-mom", newMomRoutes);
 app.use("/api/probable-joinee", newProbableJoinee);
+app.use("/api/candidates-daily-activities", candidatesDailyActivityRoutes);
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "client/build")));
