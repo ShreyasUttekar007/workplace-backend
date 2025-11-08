@@ -3,7 +3,6 @@ const router = express.Router();
 const CandidatesDailyActivity = require("../models/CandidatesDailyActivity");
 const BmcMapping = require("../models/BmcMapping");
 
-
 // ---------- helpers ----------
 const toArrayOfStrings = (val) => {
   if (val == null || val === "") return [];
@@ -13,15 +12,17 @@ const toArrayOfStrings = (val) => {
 
 const normalizePayload = (payload) => {
   const p = { ...payload };
-  p.probableShsCandidateName      = toArrayOfStrings(p.probableShsCandidateName);
-  p.shsDesignation                = toArrayOfStrings(p.shsDesignation);
-  p.shsActivityType               = toArrayOfStrings(p.shsActivityType);
-  p.shsActivityDetails            = toArrayOfStrings(p.shsActivityDetails);
-  p.oppositionCandidateName       = toArrayOfStrings(p.oppositionCandidateName);
-  p.candidateParty                = toArrayOfStrings(p.candidateParty);
-  p.oppositionCandidateDesignation= toArrayOfStrings(p.oppositionCandidateDesignation);
-  p.oppositionActivityType        = toArrayOfStrings(p.oppositionActivityType);
-  p.oppositionActivityDetails     = toArrayOfStrings(p.oppositionActivityDetails);
+  p.probableShsCandidateName = toArrayOfStrings(p.probableShsCandidateName);
+  p.shsDesignation = toArrayOfStrings(p.shsDesignation);
+  p.shsActivityType = toArrayOfStrings(p.shsActivityType);
+  p.shsActivityDetails = toArrayOfStrings(p.shsActivityDetails);
+  p.oppositionCandidateName = toArrayOfStrings(p.oppositionCandidateName);
+  p.candidateParty = toArrayOfStrings(p.candidateParty);
+  p.oppositionCandidateDesignation = toArrayOfStrings(
+    p.oppositionCandidateDesignation
+  );
+  p.oppositionActivityType = toArrayOfStrings(p.oppositionActivityType);
+  p.oppositionActivityDetails = toArrayOfStrings(p.oppositionActivityDetails);
   return p;
 };
 
@@ -34,14 +35,21 @@ const buildQuery = (q) => {
   // date range (createdAt)
   if (q.startDate || q.endDate) {
     query.createdAt = {};
-    if (q.startDate) query.createdAt.$gte = new Date(q.startDate + "T00:00:00.000Z");
-    if (q.endDate)   query.createdAt.$lte = new Date(q.endDate   + "T23:59:59.999Z");
+    if (q.startDate)
+      query.createdAt.$gte = new Date(q.startDate + "T00:00:00.000Z");
+    if (q.endDate)
+      query.createdAt.$lte = new Date(q.endDate + "T23:59:59.999Z");
   }
 
   return query;
 };
 const ciEq = (val) =>
-  new RegExp(`^${String(val).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+  new RegExp(
+    `^${String(val)
+      .trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+    "i"
+  );
 // ---------- CRUD ----------
 router.get("/lookup", async (req, res) => {
   try {
@@ -54,10 +62,14 @@ router.get("/lookup", async (req, res) => {
 
       const wards = await BmcMapping.distinct("wardNumber", filter);
       if (!wards || wards.length === 0) {
-        return res.status(404).json({ message: "No wards found for the given criteria" });
+        return res
+          .status(404)
+          .json({ message: "No wards found for the given criteria" });
       }
 
-      wards.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+      wards.sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, { numeric: true })
+      );
       return res.status(200).json({
         ...(pc ? { pc } : {}),
         constituency,
@@ -67,9 +79,13 @@ router.get("/lookup", async (req, res) => {
 
     // 2) If only PC is provided -> return CONSTITUENCIES for that PC
     if (pc) {
-      const constituencies = await BmcMapping.distinct("constituency", { pc: ciEq(pc) });
+      const constituencies = await BmcMapping.distinct("constituency", {
+        pc: ciEq(pc),
+      });
       if (!constituencies || constituencies.length === 0) {
-        return res.status(404).json({ message: "No constituencies found for the selected PC" });
+        return res
+          .status(404)
+          .json({ message: "No constituencies found for the selected PC" });
       }
 
       constituencies.sort((a, b) => String(a).localeCompare(String(b)));
@@ -98,7 +114,9 @@ router.post("/add-candidates", async (req, res) => {
     res.status(201).json({ success: true, data: doc });
   } catch (err) {
     console.error("Create error:", err);
-    res.status(500).json({ success: false, message: "Failed to create entry." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to create entry." });
   }
 });
 
@@ -109,7 +127,7 @@ router.get("/get-all", async (req, res) => {
       page = 1,
       limit = 20,
       sort = "-createdAt", // newest first
-      select,              // optional "field1 field2"
+      select, // optional "field1 field2"
     } = req.query;
 
     const query = buildQuery(req.query);
@@ -136,7 +154,9 @@ router.get("/get-all", async (req, res) => {
     });
   } catch (err) {
     console.error("List error:", err);
-    res.status(500).json({ success: false, message: "Failed to fetch entries." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch entries." });
   }
 });
 
@@ -144,7 +164,8 @@ router.get("/get-all", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const doc = await CandidatesDailyActivity.findById(req.params.id);
-    if (!doc) return res.status(404).json({ success: false, message: "Not found." });
+    if (!doc)
+      return res.status(404).json({ success: false, message: "Not found." });
     res.json({ success: true, data: doc });
   } catch (err) {
     console.error("Get error:", err);
@@ -161,11 +182,14 @@ router.put("/:id", async (req, res) => {
       { $set: data },
       { new: true }
     );
-    if (!doc) return res.status(404).json({ success: false, message: "Not found." });
+    if (!doc)
+      return res.status(404).json({ success: false, message: "Not found." });
     res.json({ success: true, data: doc });
   } catch (err) {
     console.error("Update error:", err);
-    res.status(500).json({ success: false, message: "Failed to update entry." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update entry." });
   }
 });
 
@@ -173,11 +197,14 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const doc = await CandidatesDailyActivity.findByIdAndDelete(req.params.id);
-    if (!doc) return res.status(404).json({ success: false, message: "Not found." });
+    if (!doc)
+      return res.status(404).json({ success: false, message: "Not found." });
     res.json({ success: true, message: "Deleted." });
   } catch (err) {
     console.error("Delete error:", err);
-    res.status(500).json({ success: false, message: "Failed to delete entry." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to delete entry." });
   }
 });
 
@@ -187,10 +214,15 @@ router.get("/report/daily", async (req, res) => {
   try {
     const { date } = req.query;
     if (!date) {
-      return res.status(400).json({ success: false, message: "Query param 'date' (YYYY-MM-DD) is required." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Query param 'date' (YYYY-MM-DD) is required.",
+        });
     }
     const start = new Date(date + "T00:00:00.000Z");
-    const end   = new Date(date + "T23:59:59.999Z");
+    const end = new Date(date + "T23:59:59.999Z");
 
     const query = buildQuery({ ...req.query, startDate: date, endDate: date });
     const items = await CandidatesDailyActivity.find(query).sort("-createdAt");
@@ -202,7 +234,9 @@ router.get("/report/daily", async (req, res) => {
     });
   } catch (err) {
     console.error("Daily report error:", err);
-    res.status(500).json({ success: false, message: "Failed to build daily report." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to build daily report." });
   }
 });
 
