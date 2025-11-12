@@ -22,9 +22,27 @@ const BmcMappingSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
+    corporatorCurrentParty: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    previousWinningParty: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    corporatorName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
   },
   {
-    timestamps: true, 
+    timestamps: true,
   }
 );
 

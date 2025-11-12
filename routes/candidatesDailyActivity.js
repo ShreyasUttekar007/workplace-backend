@@ -106,6 +106,86 @@ router.get("/lookup", async (req, res) => {
   }
 });
 
+const parseWard = (ward) => {
+  if (ward === undefined || ward === null) return null;
+  // Allow "178", 178, "Ward 178" — pull out last number if any; else use raw string
+  const num = String(ward).match(/\d+/);
+  return num ? Number(num[0]) : String(ward).trim();
+};
+
+/**
+ * GET /candidates-daily-activities/bmcmapping-by-ward
+ * Query params:
+ *   ward (required)      -> wardNumber (tries numeric first)
+ *   pc (optional)
+ *   constituency (optional)
+ *
+ * Returns corporator details for that ward from BmcMapping.
+ */
+router.get("/bmcmapping-by-ward", async (req, res) => {
+  try {
+    const { ward, pc, constituency } = req.query;
+    if (!ward) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing 'ward' query param" });
+    }
+
+    const parsedWard = parseWard(ward);
+    const orWard = [];
+
+    // Try numeric wardNumber (common)
+    if (typeof parsedWard === "number" && !Number.isNaN(parsedWard)) {
+      orWard.push({ wardNumber: parsedWard });
+      // Some datasets also store ward as string "178"
+      orWard.push({ wardNumber: String(parsedWard) });
+    } else {
+      // Fall back to case-insensitive match on string ward identifiers
+      orWard.push({ wardNumber: ciEq(parsedWard) });
+      orWard.push({ wardName: ciEq(parsedWard) }); // if you have a wardName field
+    }
+
+    const filter = { $or: orWard };
+    if (pc) filter.pc = ciEq(pc);
+    if (constituency) filter.constituency = ciEq(constituency);
+
+    // Pick the most recently updated mapping if duplicates exist
+    const doc = await BmcMapping.findOne(filter)
+      .select(
+        // add/remove fields as per your schema
+        "pc constituency wardNumber wardName corporatorName previousWinningParty corporatorCurrentParty updatedAt createdAt"
+      )
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean();
+
+    if (!doc) {
+      return res.status(404).json({
+        success: false,
+        message: "No corporator mapping found for the given ward/filters",
+        query: { ward, pc, constituency },
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        pc: doc.pc ?? null,
+        constituency: doc.constituency ?? null,
+        wardNumber: doc.wardNumber ?? null,
+        wardName: doc.wardName ?? null,
+        corporatorName: doc.corporatorName ?? "",
+        previousWinningParty: doc.previousWinningParty ?? "",
+        corporatorCurrentParty: doc.corporatorCurrentParty ?? "",
+        updatedAt: doc.updatedAt ?? null,
+        createdAt: doc.createdAt ?? null,
+      },
+    });
+  } catch (err) {
+    console.error("bmcmapping-by-ward error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 // Create
 router.post("/add-candidates", async (req, res) => {
   try {
@@ -161,7 +241,7 @@ router.get("/get-all", async (req, res) => {
 });
 
 // Get by id
-router.get("/:id", async (req, res) => {
+router.get("/get-one/:id", async (req, res) => {
   try {
     const doc = await CandidatesDailyActivity.findById(req.params.id);
     if (!doc)
@@ -214,12 +294,10 @@ router.get("/report/daily", async (req, res) => {
   try {
     const { date } = req.query;
     if (!date) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Query param 'date' (YYYY-MM-DD) is required.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Query param 'date' (YYYY-MM-DD) is required.",
+      });
     }
     const start = new Date(date + "T00:00:00.000Z");
     const end = new Date(date + "T23:59:59.999Z");
