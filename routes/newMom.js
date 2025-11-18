@@ -210,7 +210,7 @@ router.get("/get-mom", async (req, res) => {
     const userId = req.user?._id?.toString();
 
     // Allowed states
-    const allowedStates = ["Maharashtra", "Andhra Pradesh", "Bengal"];
+    const allowedStates = ["Maharashtra", "Andhra Pradesh", "Bengal", "Uttar Pradesh"]; // <-- Added Uttar Pradesh
 
     // Build MongoDB query
     const query = {};
