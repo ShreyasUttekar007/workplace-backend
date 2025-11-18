@@ -30,6 +30,8 @@ const holidayRoutes = require("./routes/mahaHolidayCalendar");
 const cabRoutes = require("./routes/cabRequests");
 const newMomRoutes = require("./routes/newMom");
 const newProbableJoinee = require("./routes/probableJoinees");
+const socialListeningRoutes = require("./routes/socialListening");
+const neutralInfluencerRoutes = require("./routes/neutralInfluencer");
 const candidatesDailyActivityRoutes = require("./routes/candidatesDailyActivity");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
@@ -117,6 +119,8 @@ app.use("/api/holiday", holidayRoutes);
 app.use("/api/cab", cabRoutes);
 app.use("/api/new-mom", newMomRoutes);
 app.use("/api/probable-joinee", newProbableJoinee);
+app.use("/api/social-listening", socialListeningRoutes);
+app.use("/api/neutral-influencer", neutralInfluencerRoutes);
 app.use("/api/candidates-daily-activities", candidatesDailyActivityRoutes);
 
 if (process.env.NODE_ENV === "production") {
