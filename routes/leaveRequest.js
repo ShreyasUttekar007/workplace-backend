@@ -46,9 +46,6 @@ router.post("/leave", async (req, res) => {
       "stc.portal@showtimeconsulting.in",
     ]);
 
-    if (momData.reportingManagerEmail4) {
-      recipients.add(momData.reportingManagerEmail4);
-    }
     if (momData.reportingManagerEmail3) {
       recipients.add(momData.reportingManagerEmail3);
     }
@@ -57,6 +54,9 @@ router.post("/leave", async (req, res) => {
     }
     if (momData.reportingManagerEmail1) {
       recipients.add(momData.reportingManagerEmail1);
+    }
+    if (momData.reportingManagerEmail) {
+      recipients.add(momData.reportingManagerEmail);
     }
 
     const msg = {
@@ -110,12 +110,10 @@ router.post("/leave", async (req, res) => {
         "Error sending email:",
         error.response ? error.response.body : error,
       );
-      return res
-        .status(500)
-        .json({
-          error: "Failed to send email",
-          details: error.response ? error.response.body : error.message,
-        });
+      return res.status(500).json({
+        error: "Failed to send email",
+        details: error.response ? error.response.body : error.message,
+      });
     }
 
     res.status(201).json(newLeave);
