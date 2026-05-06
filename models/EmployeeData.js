@@ -60,6 +60,24 @@ const employeeLeaveSchema = new mongoose.Schema(
     reportingManagerEmail2: {
       type: String,
     },
+    reportingManager3: {
+      type: String,
+    },
+    reportingManagerCode3: {
+      type: String,
+    },
+    reportingManagerEmail3: {
+      type: String,
+    },
+    reportingManager4: {
+      type: String,
+    },
+    reportingManagerCode4: {
+      type: String,
+    },
+    reportingManagerEmail4: {
+      type: String,
+    },
     regularizationLeave: {
       type: String,
     },

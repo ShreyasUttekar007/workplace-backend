@@ -22,7 +22,9 @@ router.post("/leave", async (req, res) => {
 
     // Validate if userId exists in momData
     if (!momData.userId) {
-      return res.status(400).json({ error: "Missing userId in the request body" });
+      return res
+        .status(400)
+        .json({ error: "Missing userId in the request body" });
     }
 
     // Check if userId matches the logged-in user's _id
@@ -43,24 +45,33 @@ router.post("/leave", async (req, res) => {
       momData.receiverEmail,
       "stc.portal@showtimeconsulting.in",
     ]);
-    
+
+    if (momData.reportingManagerEmail4) {
+      recipients.add(momData.reportingManagerEmail4);
+    }
+    if (momData.reportingManagerEmail3) {
+      recipients.add(momData.reportingManagerEmail3);
+    }
     if (momData.reportingManagerEmail2) {
       recipients.add(momData.reportingManagerEmail2);
     }
     if (momData.reportingManagerEmail1) {
       recipients.add(momData.reportingManagerEmail1);
     }
-    
+
     const msg = {
       to: [...recipients],
       from: "stc.portal@showtimeconsulting.in",
-      cc: momData.email && !recipients.has(momData.email) ? momData.email : undefined, // Ensure cc is unique
+      cc:
+        momData.email && !recipients.has(momData.email)
+          ? momData.email
+          : undefined, // Ensure cc is unique
       subject: `Leave Request - ${momData.reasonForLeave} :: ${momData.name} :: ${newLeave.leaveCode}`,
       text: `Dear HR,
     
     I hope this message finds you well. I am writing to formally request leave from ${formatDate(
-        momData.startDate
-      )} to ${formatDate(momData.endDate)}. The type of leave I am requesting is ${momData.leaveType}.
+      momData.startDate,
+    )} to ${formatDate(momData.endDate)}. The type of leave I am requesting is ${momData.leaveType}.
     
     Reason: 
     ${momData.summaryForLeave}
@@ -95,8 +106,16 @@ router.post("/leave", async (req, res) => {
       await sgMail.send(msg);
       console.log("Email sent successfully!");
     } catch (error) {
-      console.error("Error sending email:", error.response ? error.response.body : error);
-      return res.status(500).json({ error: "Failed to send email", details: error.response ? error.response.body : error.message });
+      console.error(
+        "Error sending email:",
+        error.response ? error.response.body : error,
+      );
+      return res
+        .status(500)
+        .json({
+          error: "Failed to send email",
+          details: error.response ? error.response.body : error.message,
+        });
     }
 
     res.status(201).json(newLeave);
@@ -105,7 +124,6 @@ router.post("/leave", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 router.get("/leave-requests", authenticateUser, async (req, res) => {
   try {
@@ -131,7 +149,7 @@ router.get("/leave-requests-emails", authenticateUser, async (req, res) => {
     const userRoles = req.user?.roles || []; // Extract roles from the authenticated user
     const userEmail = req.user?.email; // Extract the authenticated user's email
     const { startDate, endDate } = req.query; // Get date range from query params
-    
+
     console.log("User Roles: ", userRoles);
     console.log("User Email: ", userEmail);
     console.log("Start Date: ", startDate);
@@ -140,25 +158,31 @@ router.get("/leave-requests-emails", authenticateUser, async (req, res) => {
     if (!userEmail) {
       return res.status(400).json({ error: "User email is required." });
     }
-    
+
     let filter = {};
 
     if (startDate && endDate) {
       filter = {
         $or: [
-          { startDate: { $lte: new Date(endDate) }, endDate: { $gte: new Date(startDate) } },
+          {
+            startDate: { $lte: new Date(endDate) },
+            endDate: { $gte: new Date(startDate) },
+          },
         ],
       };
     }
 
     let leaveRequests;
-    
+
     if (userRoles.includes("admin")) {
       leaveRequests = await Leave.find(filter).sort({ createdAt: -1 });
     } else {
-      leaveRequests = await Leave.find({ receiverEmail: userEmail, ...filter }).sort({ createdAt: -1 });
+      leaveRequests = await Leave.find({
+        receiverEmail: userEmail,
+        ...filter,
+      }).sort({ createdAt: -1 });
     }
-    
+
     const leaveCount = leaveRequests.length; // Count of employees on leave
 
     res.status(200).json({ leaveRequests, leaveCount });
@@ -167,7 +191,6 @@ router.get("/leave-requests-emails", authenticateUser, async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
-
 
 router.get(
   "/leave-requests-reporting-manager",
@@ -190,11 +213,11 @@ router.get(
     } catch (error) {
       console.error(
         "Error fetching leave requests by reporting manager email:",
-        error
+        error,
       );
       res.status(500).json({ error: "Internal server error." });
     }
-  }
+  },
 );
 
 router.get("/get-leave", async (req, res) => {
