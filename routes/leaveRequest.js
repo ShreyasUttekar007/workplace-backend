@@ -32,57 +32,75 @@ router.post("/leave", async (req, res) => {
       return res.status(403).json({ error: "Forbidden - Unauthorized user" });
     }
 
+    // Debug log — confirm what actually arrived on the server
+    console.log("Leave payload RMs:", {
+      receiverEmail: momData.receiverEmail,
+      rm: momData.reportingManagerEmail,
+      rm1: momData.reportingManagerEmail1,
+      rm2: momData.reportingManagerEmail2,
+      rm3: momData.reportingManagerEmail3,
+      cc: momData.email,
+    });
+
     // Create new leave request
     const newLeave = await Leave.create(momData);
-
     const documentUrl = momData.document || "No document provided";
+
     const formatDate = (dateString) => {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-GB");
     };
 
-    const recipients = new Set([
-      momData.receiverEmail,
-      "stc.portal@showtimeconsulting.in",
-    ]);
+    // Helper — normalise and validate an email before adding to the recipient set
+    const isValidEmail = (e) =>
+      typeof e === "string" &&
+      e.trim().length > 0 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
-    if (momData.reportingManagerEmail3) {
-      recipients.add(momData.reportingManagerEmail3);
-    }
-    if (momData.reportingManagerEmail2) {
-      recipients.add(momData.reportingManagerEmail2);
-    }
-    if (momData.reportingManagerEmail1) {
-      recipients.add(momData.reportingManagerEmail1);
-    }
-    if (momData.reportingManagerEmail) {
-      recipients.add(momData.reportingManagerEmail);
+    // Build recipients safely — skip empty / undefined / malformed values
+    const recipients = new Set();
+    recipients.add("stc.portal@showtimeconsulting.in");
+
+    [
+      momData.receiverEmail,
+      momData.reportingManagerEmail,
+      momData.reportingManagerEmail1,
+      momData.reportingManagerEmail2,
+      momData.reportingManagerEmail3,
+    ].forEach((emailAddr) => {
+      if (isValidEmail(emailAddr)) {
+        recipients.add(emailAddr.trim());
+      }
+    });
+
+    if (recipients.size === 1) {
+      // Only the portal address is present — no manager would receive this
+      console.warn(
+        "Leave email has no manager recipients — only the portal address is in the To list.",
+        { leaveCode: newLeave.leaveCode, userId: momData.userId },
+      );
     }
 
     const msg = {
       to: [...recipients],
       from: "stc.portal@showtimeconsulting.in",
-      cc:
-        momData.email && !recipients.has(momData.email)
-          ? momData.email
-          : undefined, // Ensure cc is unique
       subject: `Leave Request - ${momData.reasonForLeave} :: ${momData.name} :: ${newLeave.leaveCode}`,
       text: `Dear HR,
-    
-    I hope this message finds you well. I am writing to formally request leave from ${formatDate(
-      momData.startDate,
-    )} to ${formatDate(momData.endDate)}. The type of leave I am requesting is ${momData.leaveType}.
-    
-    Reason: 
-    ${momData.summaryForLeave}
-    
-    To support my request, you can find the relevant document at the following link:
-    ${documentUrl}
-    
-    Thank you for your understanding and consideration.
-    
-    Best regards,
-    ${momData.name}`,
+
+I hope this message finds you well. I am writing to formally request leave from ${formatDate(
+        momData.startDate,
+      )} to ${formatDate(momData.endDate)}. The type of leave I am requesting is ${momData.leaveType}.
+
+Reason:
+${momData.summaryForLeave}
+
+To support my request, you can find the relevant document at the following link:
+${documentUrl}
+
+Thank you for your understanding and consideration.
+
+Best regards,
+${momData.name}`,
       html: `
         <p>Dear HR,</p>
         <p>
@@ -102,9 +120,19 @@ router.post("/leave", async (req, res) => {
       `,
     };
 
+    // Only attach cc if it's a real email and not already in the To list
+    if (isValidEmail(momData.email) && !recipients.has(momData.email.trim())) {
+      msg.cc = momData.email.trim();
+    }
+
     try {
       await sgMail.send(msg);
-      console.log("Email sent successfully!");
+      console.log(
+        "Email sent successfully to:",
+        msg.to,
+        "cc:",
+        msg.cc || "(none)",
+      );
     } catch (error) {
       console.error(
         "Error sending email:",

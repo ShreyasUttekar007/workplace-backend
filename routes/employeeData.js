@@ -18,12 +18,18 @@ router.get("/get-manager-email/:employeeEmail", async (req, res) => {
       return res.status(404).json({ message: "Employee not found" });
     }
 
-    // Include both reportingManager and reportingManagerEmail in the response
+    // Return all four manager pairs. Fall back to "" so the frontend
+    // always receives the keys it expects, even when a field is unset
+    // on the document.
     res.status(200).json({
-      reportingManager: employee.reportingManager,
-      reportingManagerEmail: employee.reportingManagerEmail,
-      reportingManager2: employee.reportingManager2,
-      reportingManagerEmail2: employee.reportingManagerEmail2,
+      reportingManager:       employee.reportingManager       || "",
+      reportingManagerEmail:  employee.reportingManagerEmail  || "",
+      reportingManager1:      employee.reportingManager1      || "",
+      reportingManagerEmail1: employee.reportingManagerEmail1 || "",
+      reportingManager2:      employee.reportingManager2      || "",
+      reportingManagerEmail2: employee.reportingManagerEmail2 || "",
+      reportingManager3:      employee.reportingManager3      || "",
+      reportingManagerEmail3: employee.reportingManagerEmail3 || "",
     });
   } catch (error) {
     console.error("Error fetching manager details:", error);
