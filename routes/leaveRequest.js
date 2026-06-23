@@ -6,6 +6,8 @@ const { roles } = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
 const sgMail = require("@sendgrid/mail");
 const EmployeeLeave = require("../models/EmployeeData");
+const { applyLeaveStatus } = require("../utils/leaveStatus");
+const { sendActionSummary } = require("../utils/leaveEmails");
 
 router.use(authenticateUser);
 
@@ -45,63 +47,34 @@ router.post("/leave", async (req, res) => {
     // Create new leave request
     const newLeave = await Leave.create(momData);
     const documentUrl = momData.document || "No document provided";
+    // Base URL the email Approve/Decline links point back to (the backend).
+    // Set EMAIL_ACTION_BASE_URL in .env for production (e.g. https://showtimeconsulting.co.in).
+    const actionBase =
+      process.env.EMAIL_ACTION_BASE_URL || "http://localhost:5000";
 
     const formatDate = (dateString) => {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-GB");
     };
 
-    // Helper — normalise and validate an email before adding to the recipient set
+    // Helper — normalise and validate an email
     const isValidEmail = (e) =>
       typeof e === "string" &&
       e.trim().length > 0 &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
-    // Build recipients safely — skip empty / undefined / malformed values
-    const recipients = new Set();
-    recipients.add("stc.portal@showtimeconsulting.in");
+    const PORTAL = "stc.portal@showtimeconsulting.in";
 
-    [
-      momData.receiverEmail,
-      momData.reportingManagerEmail,
-      momData.reportingManagerEmail1,
-      momData.reportingManagerEmail2,
-      momData.reportingManagerEmail3,
-    ].forEach((emailAddr) => {
-      if (isValidEmail(emailAddr)) {
-        recipients.add(emailAddr.trim());
-      }
-    });
+    // The leave form's "Mail to" field (receiverEmail) is the PRIMARY reporting
+    // manager the request is addressed to. Fall back to reportingManagerEmail.
+    // Only this person receives the Approve/Decline buttons.
+    const primaryRM = isValidEmail(momData.receiverEmail)
+      ? momData.receiverEmail.trim()
+      : isValidEmail(momData.reportingManagerEmail)
+      ? momData.reportingManagerEmail.trim()
+      : null;
 
-    if (recipients.size === 1) {
-      // Only the portal address is present — no manager would receive this
-      console.warn(
-        "Leave email has no manager recipients — only the portal address is in the To list.",
-        { leaveCode: newLeave.leaveCode, userId: momData.userId },
-      );
-    }
-
-    const msg = {
-      to: [...recipients],
-      from: "stc.portal@showtimeconsulting.in",
-      subject: `Leave Request - ${momData.reasonForLeave} :: ${momData.name} :: ${newLeave.leaveCode}`,
-      text: `Dear HR,
-
-I hope this message finds you well. I am writing to formally request leave from ${formatDate(
-        momData.startDate,
-      )} to ${formatDate(momData.endDate)}. The type of leave I am requesting is ${momData.leaveType}.
-
-Reason:
-${momData.summaryForLeave}
-
-To support my request, you can find the relevant document at the following link:
-${documentUrl}
-
-Thank you for your understanding and consideration.
-
-Best regards,
-${momData.name}`,
-      html: `
+    const sharedHtml = `
         <p>Dear HR,</p>
         <p>
           I hope this message finds you well. I am writing to formally request leave from 
@@ -116,32 +89,108 @@ ${momData.name}`,
           <a href="${documentUrl}" target="_blank">Supporting Document</a>
         </p>
         <p>Thank you for your understanding and consideration.</p>
-        <p>Best regards,<br />${momData.name}</p>
-      `,
-    };
+        <p>Best regards,<br />${momData.name}</p>`;
 
-    // Only attach cc if it's a real email and not already in the To list
-    if (isValidEmail(momData.email) && !recipients.has(momData.email.trim())) {
-      msg.cc = momData.email.trim();
+    const textBody = `Dear HR,
+
+I hope this message finds you well. I am writing to formally request leave from ${formatDate(
+      momData.startDate,
+    )} to ${formatDate(momData.endDate)}. The type of leave I am requesting is ${momData.leaveType}.
+
+Reason:
+${momData.summaryForLeave}
+
+To support my request, you can find the relevant document at the following link:
+${documentUrl}
+
+Thank you for your understanding and consideration.
+
+Best regards,
+${momData.name}`;
+
+    const buttonsHtml = `
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 18px;" />
+        <p style="margin:0 0 12px;color:#3a4a5e;font-size:14px;">
+          <strong>Reporting Manager:</strong> you can action this request directly:
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+          <td style="padding-right:12px;">
+            <a href="${actionBase}/api/leave-action/${newLeave._id}?action=approve&token=${newLeave.actionToken}"
+               style="display:inline-block;background:#1f8a4c;color:#ffffff;text-decoration:none;
+                      font-weight:700;padding:12px 28px;border-radius:8px;font-size:15px;">
+              &#10003; Approve
+            </a>
+          </td>
+          <td>
+            <a href="${actionBase}/api/leave-action/${newLeave._id}?action=decline&token=${newLeave.actionToken}"
+               style="display:inline-block;background:#b00020;color:#ffffff;text-decoration:none;
+                      font-weight:700;padding:12px 28px;border-radius:8px;font-size:15px;">
+              &#10005; Decline
+            </a>
+          </td>
+        </tr></table>
+        <p style="margin:14px 0 0;color:#8a97a8;font-size:12px;">
+          The action you choose here is final and will be reflected on the STC Workplace portal automatically.
+        </p>`;
+
+    const subject = `Leave Request - ${momData.reasonForLeave} :: ${momData.name} :: ${newLeave.leaveCode}`;
+
+    // 1) Buttoned email -> PRIMARY reporting manager ONLY
+    if (primaryRM) {
+      try {
+        await sgMail.send({
+          to: primaryRM,
+          from: PORTAL,
+          subject,
+          text: textBody,
+          html: sharedHtml + buttonsHtml,
+        });
+      } catch (error) {
+        console.error(
+          "Failed to send buttoned email to primary RM:",
+          error.response ? error.response.body : error.message,
+        );
+      }
+    } else {
+      console.warn(
+        "No valid primary reporting manager — Approve/Decline email not sent.",
+        { leaveCode: newLeave.leaveCode },
+      );
     }
 
-    try {
-      await sgMail.send(msg);
-      console.log(
-        "Email sent successfully to:",
-        msg.to,
-        "cc:",
-        msg.cc || "(none)",
-      );
-    } catch (error) {
-      console.error(
-        "Error sending email:",
-        error.response ? error.response.body : error,
-      );
-      return res.status(500).json({
-        error: "Failed to send email",
-        details: error.response ? error.response.body : error.message,
-      });
+    // 2) Plain notification (NO buttons) -> applicant + portal only.
+    //    (Reporting managers — primary or secondary — are not in this list:
+    //     the primary got the buttoned email; secondaries get the summary
+    //     after the primary acts.)
+    const plainSet = new Set();
+    [momData.email, PORTAL].forEach((e) => {
+      if (isValidEmail(e) && (!primaryRM || e.trim() !== primaryRM)) {
+        plainSet.add(e.trim());
+      }
+    });
+    if (plainSet.size) {
+      try {
+        await sgMail.send({
+          to: [...plainSet],
+          from: PORTAL,
+          subject: `Leave Request Submitted :: ${momData.name} :: ${newLeave.leaveCode}`,
+          text:
+            textBody +
+            "\n\n(This is a notification copy. The reporting manager will approve or decline the request.)",
+          html:
+            sharedHtml +
+            `<p style="color:#8a97a8;font-size:12px;margin-top:16px;">This is a notification copy.${
+              primaryRM
+                ? " The reporting manager has been emailed to approve or decline this request."
+                : ""
+            }</p>`,
+        });
+      } catch (error) {
+        console.error(
+          "Failed to send plain notification emails:",
+          error.response ? error.response.body : error.message,
+        );
+      }
     }
 
     res.status(201).json(newLeave);
@@ -288,112 +337,32 @@ router.put("/update-leave-status/:id", async (req, res) => {
   const { leaveStatus } = req.body;
 
   try {
-    // Fetch the leave request by ID
     const leaveRequest = await Leave.findById(id);
-
     if (!leaveRequest) {
       return res.status(404).json({ error: "Leave request not found" });
     }
 
-    // If the status is not 'approved', only update the status and exit
-    if (leaveStatus !== "approved") {
-      leaveRequest.leaveStatus = leaveStatus;
-      const updatedData = await leaveRequest.save();
-      return res.status(200).json(updatedData);
+    const result = await applyLeaveStatus(leaveRequest, leaveStatus);
+
+    // Notify secondary reporting manager(s) + applicant when actioned from the portal too.
+    if (
+      result.status !== "unchanged" &&
+      (leaveStatus === "approved" || leaveStatus === "not approved")
+    ) {
+      await sendActionSummary(leaveRequest, leaveStatus);
     }
 
-    // Fetch the employee's leave balance
-    const employee = await EmployeeLeave.findOne({
-      employeeEmail: { $regex: new RegExp(`^${leaveRequest.email}$`, "i") },
-    });
-
-    if (!employee) {
-      return res.status(404).json({ error: "Employee not found" });
-    }
-
-    // Calculate the number of leave days
-    const startDate = new Date(leaveRequest.startDate);
-    const endDate = new Date(leaveRequest.endDate);
-    const leaveDays =
-      Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-
-    // Deduct/Add leave balance based on leave type
-    switch (leaveRequest.leaveType) {
-      case "paidLeave":
-        if (employee.paidLeave >= leaveDays) {
-          employee.paidLeave -= leaveDays; // Deduct directly
-        } else {
-          const remainingDays = leaveDays - employee.paidLeave;
-          employee.paidLeave = 0; // Exhaust paid leave
-
-          if (employee.sickLeave >= remainingDays) {
-            employee.sickLeave -= remainingDays; // Deduct from sick leave if possible
-          } else {
-            const extraNeeded = remainingDays - employee.sickLeave;
-            employee.sickLeave = 0; // Exhaust sick leave
-            employee.paidLeave -= extraNeeded; // Go negative on paid leave
-          }
-        }
-        break;
-
-      case "sickLeave":
-        if (employee.sickLeave >= leaveDays) {
-          employee.sickLeave -= leaveDays; // Deduct directly
-        } else {
-          const remainingDays = leaveDays - employee.sickLeave;
-          employee.sickLeave = 0; // Exhaust sick leave
-
-          if (employee.paidLeave >= remainingDays) {
-            employee.paidLeave -= remainingDays; // Deduct from paid leave if possible
-          } else {
-            const extraNeeded = remainingDays - employee.paidLeave;
-            employee.paidLeave = 0; // Exhaust paid leave
-            employee.sickLeave -= extraNeeded; // Go negative on sick leave
-          }
-        }
-        break;
-
-      case "restrictedHoliday":
-        employee.restrictedHoliday -= leaveDays;
-        break;
-
-      case "menstrualLeave":
-        employee.menstrualLeave -= leaveDays;
-        break;
-
-      case "halfDayLeave":
-        employee.paidLeave -= 0.5;
-        break;
-
-      case "regularizationLeave":
-        employee.regularizationLeave -= leaveDays; // Can go negative
-        break;
-
-      case "compensationLeave":
-        employee.compensationLeave =
-          Number(employee.compensationLeave || 0) + leaveDays;
-        break;
-
-      case "onOfficeDuty":
-        employee.onOfficeDuty = Number(employee.onOfficeDuty || 0) + leaveDays;
-        break;
-
-      default:
-        return res.status(400).json({ error: "Invalid leave type" });
-    }
-
-    // Save the updated employee leave balance
-    await employee.save();
-
-    // Update the leave request status
-    leaveRequest.leaveStatus = leaveStatus;
-    const updatedData = await leaveRequest.save();
-
-    res.status(200).json({
-      message: "Leave status updated and balance adjusted",
-      updatedData,
+    return res.status(200).json({
+      message: "Leave status updated",
+      updatedData: result.leaveRequest,
     });
   } catch (error) {
+    if (error.code === "NO_EMPLOYEE") {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+    if (error.code === "INVALID_TYPE") {
+      return res.status(400).json({ error: "Invalid leave type" });
+    }
     console.error("Error updating leave status:", error);
     res.status(500).json({ error: "Internal server error" });
   }

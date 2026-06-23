@@ -44,6 +44,13 @@ const cabRequestSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    zone: { type: String, trim: true },
+    pcName: { type: String, trim: true },
+    acName: { type: String, trim: true },
+    team: { type: String, trim: true },
+    designation: { type: String, trim: true },
+    phoneNumber: { type: String, trim: true },
+    approxDriveKms: { type: String, trim: true },
     recieverEmail: {
       type: String,
       trim: true,

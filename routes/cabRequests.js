@@ -414,4 +414,16 @@ router.delete("/delete-cab-request/:momId", async (req, res) => {
   }
 });
 
+// ---- Cab request stats for the welcome dashboard ----
+router.get("/stats", authenticateUser, async (req, res) => {
+  try {
+    const pending = await CabRecord.countDocuments({ cabStatus: "pending" });
+    const approved = await CabRecord.countDocuments({ cabStatus: "approved" });
+    const total = await CabRecord.countDocuments();
+    res.status(200).json({ pending, approved, total });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

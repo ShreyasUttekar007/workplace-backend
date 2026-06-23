@@ -95,6 +95,9 @@ const LeaveRequestSchema = new Schema(
       type: String,
       trim: true,
     },
+    actionToken: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
@@ -108,6 +111,11 @@ LeaveRequestSchema.pre("save", async function (next) {
       65 + Math.floor(Math.random() * 26)
     ); // Generate a random uppercase letter (A-Z)
     this.leaveCode = `LRC-${randomAlphabet}${randomDigits}`;
+  }
+
+  // Generate a one-time-ish token used to secure the email Approve/Decline links
+  if (!this.actionToken) {
+    this.actionToken = require("crypto").randomBytes(24).toString("hex");
   }
 
   // Fetch the employeeCode from the EmployeeLeave model using the email

@@ -44,6 +44,24 @@ const UserSchema = new Schema(
     location: {
       type: String,
     },
+    reportingManagerEmail: {
+      type: String,
+    },
+    reportingManagerName: {
+      type: String,
+    },
+    secondaryReportingManagerEmail: {
+      type: String,
+    },
+    secondaryReportingManagerName: {
+      type: String,
+    },
+    department: {
+      type: String,
+    },
+    team: {
+      type: String,
+    },
     stcCode: {
       type: String,
     },

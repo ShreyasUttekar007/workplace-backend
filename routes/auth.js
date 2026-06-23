@@ -139,7 +139,18 @@ router.put("/update-password", async (req, res, next) => {
 router.put("/update-user/:userId", async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { email, userName, roles, location } = req.body;
+    const {
+      email,
+      userName,
+      roles,
+      location,
+      reportingManagerEmail,
+      reportingManagerName,
+      secondaryReportingManagerEmail,
+      secondaryReportingManagerName,
+      department,
+      team,
+    } = req.body;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -150,6 +161,16 @@ router.put("/update-user/:userId", async (req, res, next) => {
     user.userName = userName || user.userName;
     user.roles = roles || user.roles;
     user.location = location || user.location;
+    if (reportingManagerEmail !== undefined)
+      user.reportingManagerEmail = reportingManagerEmail;
+    if (reportingManagerName !== undefined)
+      user.reportingManagerName = reportingManagerName;
+    if (secondaryReportingManagerEmail !== undefined)
+      user.secondaryReportingManagerEmail = secondaryReportingManagerEmail;
+    if (secondaryReportingManagerName !== undefined)
+      user.secondaryReportingManagerName = secondaryReportingManagerName;
+    if (department !== undefined) user.department = department;
+    if (team !== undefined) user.team = team;
 
     await user.save();
     res.status(200).json({ message: "User updated successfully" });
