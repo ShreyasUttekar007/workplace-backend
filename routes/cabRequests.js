@@ -106,15 +106,35 @@ router.get(
   async (req, res) => {
     try {
       const userEmail = req.user?.email;
+      const userRoles = req.user?.roles || [];
       console.log("✌️userEmail --->", userEmail);
 
       if (!userEmail) {
         return res.status(400).json({ error: "User email is required." });
       }
-      // Fetch cab requests where the user's email is mentioned in reportingManagerEmail
-      const cabRequests = await CabRecord.find({
-        recieverEmail: userEmail,
-      }).sort({ createdAt: -1 });
+
+      // These users can action ALL cab requests (in addition to admins),
+      // not just the ones where they are the reporting manager.
+      const CAB_SUPER_APPROVERS = [
+        "prathik.kethavath@showtimeconsulting.in",
+        "rajkumar@showtimeconsulting.in",
+        "nikash.kumar@showtimeconsulting.in",
+        "admin@showtimeconsulting.in",
+      ];
+      const isSuperApprover =
+        userRoles.includes("admin") ||
+        CAB_SUPER_APPROVERS.includes((userEmail || "").trim().toLowerCase());
+
+      let cabRequests;
+      if (isSuperApprover) {
+        // Full access — see every cab request.
+        cabRequests = await CabRecord.find().sort({ createdAt: -1 });
+      } else {
+        // Normal reporting manager — only requests addressed to them.
+        cabRequests = await CabRecord.find({
+          recieverEmail: userEmail,
+        }).sort({ createdAt: -1 });
+      }
 
       res.status(200).json({ cabRequests });
     } catch (error) {

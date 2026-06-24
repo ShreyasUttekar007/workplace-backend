@@ -66,13 +66,25 @@ router.post("/leave", async (req, res) => {
     const PORTAL = "stc.portal@showtimeconsulting.in";
 
     // The leave form's "Mail to" field (receiverEmail) is the PRIMARY reporting
-    // manager the request is addressed to. Fall back to reportingManagerEmail.
-    // Only this person receives the Approve/Decline buttons.
-    const primaryRM = isValidEmail(momData.receiverEmail)
-      ? momData.receiverEmail.trim()
-      : isValidEmail(momData.reportingManagerEmail)
-      ? momData.reportingManagerEmail.trim()
-      : null;
+    // manager. Fall back through the other manager fields so the buttoned email
+    // always reaches someone who can action it.
+    const primaryRM =
+      [
+        momData.receiverEmail,
+        momData.reportingManagerEmail,
+        momData.reportingManagerEmail1,
+        momData.reportingManagerEmail2,
+        momData.reportingManagerEmail3,
+      ]
+        .map((e) => (typeof e === "string" ? e.trim() : ""))
+        .find((e) => isValidEmail(e)) || null;
+
+    console.log(
+      `Leave ${newLeave.leaveCode}: primary RM resolved as`,
+      primaryRM || "(none — buttoned email will NOT be sent)",
+      "| receiverEmail:",
+      momData.receiverEmail || "(empty)",
+    );
 
     const sharedHtml = `
         <p>Dear HR,</p>
@@ -145,6 +157,7 @@ ${momData.name}`;
           text: textBody,
           html: sharedHtml + buttonsHtml,
         });
+        console.log(`Buttoned leave email sent to primary RM: ${primaryRM}`);
       } catch (error) {
         console.error(
           "Failed to send buttoned email to primary RM:",
