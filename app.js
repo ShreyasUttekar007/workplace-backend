@@ -23,6 +23,8 @@ const candidateRoutes = require("./routes/candidateList");
 const leaveRoutes = require("./routes/leaveRequest");
 const leaveEmailActionRoutes = require("./routes/leaveEmailAction");
 const aiTextRoutes = require("./routes/aiText");
+const sheetSyncRoutes = require("./routes/sheetSync");
+const { startSheetSyncJob } = require("./routes/sheetSyncJob");
 const employeeRoutes = require("./routes/employeeData");
 const empRoutes = require("./routes/empMetrics");
 const bmcMappingRoutes = require("./routes/bmcMapping");
@@ -118,6 +120,7 @@ app.use("/api/empmetrics", empRoutes);
 app.use("/api/leavedata", leaveRoutes);
 app.use("/api/leave-action", leaveEmailActionRoutes);
 app.use("/api/ai", aiTextRoutes);
+app.use("/api/sheet-sync", sheetSyncRoutes);
 app.use("/api/employeedata", employeeRoutes);
 app.use("/api/bmc", bmcMappingRoutes);
 app.use("/api/state", stateMappingRoutes);
@@ -143,4 +146,9 @@ if (process.env.NODE_ENV === "production") {
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
   console.log(`Server started on port ${port}`);
+  try {
+    startSheetSyncJob();
+  } catch (e) {
+    console.error("Could not start sheet sync job:", e.message);
+  }
 });
