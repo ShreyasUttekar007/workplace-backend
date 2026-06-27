@@ -85,18 +85,23 @@ router.get("/mom-counts", async (req, res) => {
       counts[key].count += 1;
     };
 
-    // New meetings (MomFormat) — meetingDate stored as a string.
-    const fmt = await MomFormat.find({ meetingDate: date }).select(
-      "createdByName meetingDate"
-    );
+    // Count meetings RECORDED on this day (createdAt), in Asia/Kolkata.
+    // (Note: meetingDate is the date the meeting was about, which can differ
+    // from when it was entered — the user wants meetings *recorded* that day.)
+    const startIST = new Date(`${date}T00:00:00+05:30`);
+    const endIST = new Date(`${date}T23:59:59.999+05:30`);
+
+    // New meetings (MomFormat).
+    const fmt = await MomFormat.find({
+      createdAt: { $gte: startIST, $lte: endIST },
+    }).select("createdByName createdAt");
     fmt.forEach((r) => add(r.createdByName));
 
-    // Legacy meetings (NewMom) — date stored in `dom`, recorder via userName.
+    // Legacy meetings (NewMom), if present.
     try {
-      const legacy = await NewMom.find({ dom: date }).populate(
-        "userId",
-        "userName"
-      );
+      const legacy = await NewMom.find({
+        createdAt: { $gte: startIST, $lte: endIST },
+      }).populate("userId", "userName");
       legacy.forEach((m) => add((m.userId && m.userId.userName) || ""));
     } catch (e) {
       /* legacy collection optional */
