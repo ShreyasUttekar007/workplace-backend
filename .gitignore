@@ -27,4 +27,3 @@ node_modules
 *.pem
 *.bak
 credentials/
-*.json.key
