@@ -171,13 +171,24 @@ ${momData.name}`;
       );
     }
 
-    // 2) Plain notification (NO buttons) -> applicant + portal only.
-    //    (Reporting managers — primary or secondary — are not in this list:
-    //     the primary got the buttoned email; secondaries get the summary
-    //     after the primary acts.)
+    // 2) Plain notification (NO buttons) -> applicant + portal + the ENTIRE
+    //    reporting chain (all secondary reporting managers), so everyone in the
+    //    chain is informed immediately. Only the PRIMARY RM gets the buttoned
+    //    email above; everyone else gets this notification copy. The primary RM
+    //    is excluded here so they don't get a duplicate.
     const plainSet = new Set();
-    [momData.email, PORTAL].forEach((e) => {
-      if (isValidEmail(e) && (!primaryRM || e.trim() !== primaryRM)) {
+    [
+      momData.email,
+      PORTAL,
+      momData.reportingManagerEmail,
+      momData.reportingManagerEmail1,
+      momData.reportingManagerEmail2,
+      momData.reportingManagerEmail3,
+    ].forEach((e) => {
+      if (
+        isValidEmail(e) &&
+        (!primaryRM || e.trim().toLowerCase() !== primaryRM.toLowerCase())
+      ) {
         plainSet.add(e.trim());
       }
     });
@@ -189,15 +200,19 @@ ${momData.name}`;
           subject: `Leave Request Submitted :: ${momData.name} :: ${newLeave.leaveCode}`,
           text:
             textBody +
-            "\n\n(This is a notification copy. The reporting manager will approve or decline the request.)",
+            "\n\n(This is a notification copy. The primary reporting manager will approve or decline the request.)",
           html:
             sharedHtml +
-            `<p style="color:#8a97a8;font-size:12px;margin-top:16px;">This is a notification copy.${
+            `<p style="color:#8a97a8;font-size:12px;margin-top:16px;">This is a notification copy for the reporting chain.${
               primaryRM
-                ? " The reporting manager has been emailed to approve or decline this request."
+                ? " The primary reporting manager has been emailed to approve or decline this request."
                 : ""
             }</p>`,
         });
+        console.log(
+          `Leave ${newLeave.leaveCode}: chain notified ->`,
+          [...plainSet].join(", "),
+        );
       } catch (error) {
         console.error(
           "Failed to send plain notification emails:",

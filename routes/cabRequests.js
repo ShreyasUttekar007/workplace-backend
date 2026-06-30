@@ -279,14 +279,31 @@ const messageBody = `🚖 *Cab Request*
 *Co-Passengers:* 
 ${addOnDetails}`;
 
-      // Send WhatsApp message
-      await client.messages.create({
-        from: process.env.TWILIO_WHATSAPP_NUMBER, // Directly using env variable
-        to: recipientNumber,
-        body: messageBody,
-      });
-
-      console.log("✅ WhatsApp message sent successfully!");
+      // Send WhatsApp message — non-fatal: a Twilio failure (e.g. missing
+      // credentials) must NOT break the cab approval, which already succeeded.
+      try {
+        if (
+          process.env.TWILIO_ACCOUNT_SID &&
+          process.env.TWILIO_AUTH_TOKEN &&
+          process.env.TWILIO_WHATSAPP_NUMBER
+        ) {
+          await client.messages.create({
+            from: process.env.TWILIO_WHATSAPP_NUMBER,
+            to: recipientNumber,
+            body: messageBody,
+          });
+          console.log("✅ WhatsApp message sent successfully!");
+        } else {
+          console.warn(
+            "WhatsApp not sent: Twilio credentials not configured (skipping, approval still saved)."
+          );
+        }
+      } catch (waErr) {
+        console.error(
+          "WhatsApp send failed (approval still saved):",
+          waErr.message
+        );
+      }
     }
 
     res.status(200).json(updatedCabRequest);
@@ -332,14 +349,30 @@ router.put("/update-cab-data/:momId", async (req, res) => {
       if (cabNumber && driverName && driverNumber) {
         const message = `Dear ${name},\n\nPlease find your cab details below:\n🚖 Pickup Location: ${pickupLocation}\n⏰ Pickup Time: ${pickupTime}\n🚕 Cab Number: ${cabNumber}\n👨‍✈️ Driver Name: ${driverName}\n📞 Driver Number: ${driverNumber}\n\nThank you.`;
 
-        // Send WhatsApp message
-        await client.messages.create({
-          from: process.env.TWILIO_WHATSAPP_NUMBER,
-          to: `whatsapp:${phoneNumber}`,
-          body: message,
-        });
-
-        console.log("WhatsApp notification sent successfully!");
+        // Non-fatal: a Twilio failure must not break the update.
+        try {
+          if (
+            process.env.TWILIO_ACCOUNT_SID &&
+            process.env.TWILIO_AUTH_TOKEN &&
+            process.env.TWILIO_WHATSAPP_NUMBER
+          ) {
+            await client.messages.create({
+              from: process.env.TWILIO_WHATSAPP_NUMBER,
+              to: `whatsapp:${phoneNumber}`,
+              body: message,
+            });
+            console.log("WhatsApp notification sent successfully!");
+          } else {
+            console.warn(
+              "WhatsApp not sent: Twilio credentials not configured (skipping, update still saved)."
+            );
+          }
+        } catch (waErr) {
+          console.error(
+            "WhatsApp send failed (update still saved):",
+            waErr.message
+          );
+        }
       } else {
         console.log("Cab details incomplete. WhatsApp message not sent.");
       }

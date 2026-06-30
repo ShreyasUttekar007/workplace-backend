@@ -4,7 +4,65 @@ const fs = require("fs");
 const path = require("path");
 const sgMail = require("@sendgrid/mail");
 const PcmReport = require("../models/PcmReport");
+const MomFormat = require("../models/MomFormat");
 require("dotenv").config();
+
+// --- MoM count helpers (mirror the on-screen PCM tracker logic) ---
+const _normName = (s) =>
+  (s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .sort()
+    .join(" ");
+
+const _closeTok = (a, b) => {
+  if (a === b) return true;
+  if (a.length < 3 || b.length < 3) return false;
+  if (a.startsWith(b) || b.startsWith(a)) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let diff = 0;
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) if (a[i] !== b[i]) diff++;
+  return diff <= 2;
+};
+
+// Returns a function momCountFor(pcmName) for meetings RECORDED on `date`.
+const buildMomCounter = async (date) => {
+  const counts = {}; // normalizedName -> count
+  const startIST = new Date(`${date}T00:00:00+05:30`);
+  const endIST = new Date(`${date}T23:59:59.999+05:30`);
+  try {
+    const fmt = await MomFormat.find({
+      createdAt: { $gte: startIST, $lte: endIST },
+    }).select("createdByName createdAt");
+    fmt.forEach((r) => {
+      const k = _normName(r.createdByName);
+      if (k) counts[k] = (counts[k] || 0) + 1;
+    });
+  } catch (e) {
+    console.error("buildMomCounter error:", e.message);
+  }
+  const list = Object.entries(counts).map(([k, c]) => ({ key: k, count: c }));
+  return (pcmName) => {
+    if (!pcmName || pcmName === "Vacant") return 0;
+    const target = _normName(pcmName);
+    if (!target) return 0;
+    let hit = list.find((c) => c.key === target);
+    if (hit) return hit.count;
+    const tt = target.split(" ");
+    hit = list.find((c) => {
+      const ct = c.key.split(" ");
+      const short = tt.length <= ct.length ? tt : ct;
+      const long = tt.length <= ct.length ? ct : tt;
+      return short.every((tok) => long.some((l) => _closeTok(tok, l)));
+    });
+    return hit ? hit.count : 0;
+  };
+};
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -84,8 +142,9 @@ const generatePDF = (report, dateLabel) => {
       .text(`PCM Activity Report - ${dateLabel}`, left, doc.y);
     doc.moveDown(0.3);
 
-    const headers = ["#", "PCM Name", "PC Mapped", "Att.", "Cab", "Esc.", "Opp.", "Meeting Conducted / Note"];
-    const widths = [22, 95, 90, 45, 35, 32, 32, usableW - (22 + 95 + 90 + 45 + 35 + 32 + 32)];
+    const headers = ["#", "PCM Name", "PC Mapped", "MoM's", "Att.", "Cab", "Esc.", "Opp.", "Meeting Conducted / Note"];
+    const fixedW = 22 + 95 + 90 + 36 + 45 + 35 + 32 + 32;
+    const widths = [22, 95, 90, 36, 45, 35, 32, 32, usableW - fixedW];
     const rows = (report && report.pcmRows) || [];
 
     const drawHeader = () => {
@@ -106,6 +165,7 @@ const generatePDF = (report, dateLabel) => {
         r.slNo || idx + 1,
         r.pcmName || "",
         r.pcMapped || "",
+        r._momCount == null ? "0" : String(r._momCount),
         r.attendance || "",
         r.cabUsed || "",
         r.escalationRaised || "0",
@@ -113,7 +173,8 @@ const generatePDF = (report, dateLabel) => {
         meeting || "",
       ];
       // estimate row height from the long last column
-      const mh = doc.heightOfString(vals[7], { width: widths[7] - 6, fontSize: 8 });
+      const lastIdx = vals.length - 1;
+      const mh = doc.heightOfString(vals[lastIdx], { width: widths[lastIdx] - 6, fontSize: 8 });
       const rowH = Math.max(20, mh + 8);
       if (doc.y + rowH > doc.page.height - 30) {
         doc.addPage();
@@ -181,7 +242,16 @@ const generatePDF = (report, dateLabel) => {
 const sendPcmReport = async () => {
   const date = new Date().toISOString().split("T")[0];
   const dateLabel = fmtDateDDMMYYYY(date);
-  const report = await PcmReport.findOne({ date });
+  const reportDoc = await PcmReport.findOne({ date });
+  const report = reportDoc ? reportDoc.toObject() : reportDoc;
+
+  // Attach each PCM's recorded-meeting count for the day (for the MoM column).
+  if (report && Array.isArray(report.pcmRows)) {
+    const momCountFor = await buildMomCounter(date);
+    report.pcmRows.forEach((r) => {
+      r._momCount = momCountFor(r.pcmName);
+    });
+  }
 
   const pdfPath = await generatePDF(report, dateLabel);
   const attachment = fs.readFileSync(pdfPath).toString("base64");
