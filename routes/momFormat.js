@@ -3,6 +3,7 @@ const router = express.Router();
 const MomFormat = require("../models/MomFormat");
 const NewMom = require("../models/NewMomModel");
 const BoothsAp = require("../models/BoothListAP");
+const User = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
 
 router.use(authenticateUser);
@@ -59,11 +60,13 @@ router.get("/meeting-photo/:id", async (req, res) => {
 
 router.get("/all-meetings", async (req, res) => {
   try {
-    // Exclude the heavy photo blobs from the LIST payload (they can be large
-    // base64 images; returning thousands of them caused a 504 timeout). The
-    // list's photo column doesn't render the blob anyway. Use .lean() for speed.
-    const fmt = await MomFormat.find()
-      .select("-respondentPhoto")
+    // Fetch ONLY the fields the dashboard uses (tight projection) and .lean()
+    // for speed. The previous version returned full documents incl. large
+    // photo blobs, which timed out (504). The list never needs the photo.
+    const fmt = await MomFormat.find(
+      {},
+      "createdByName createdAt location respondentName respondentDesignation meetingDate meetingTime gMapLocation reviewStatus zone pc"
+    )
       .sort({ createdAt: -1 })
       .lean();
     const formatRows = fmt.map((r) => ({
@@ -84,18 +87,33 @@ router.get("/all-meetings", async (req, res) => {
       pc: r.pc || "",
     }));
 
-    // Legacy records (also without the photo blob).
-    const legacy = await NewMom.find()
-      .select("-leaderPhoto")
-      .populate("userId", "userName")
+    // Legacy records — tight projection, NO per-row populate (that was the
+    // 181s bottleneck across ~15k rows). We resolve user names with ONE bulk
+    // lookup below instead.
+    const legacy = await NewMom.find(
+      {},
+      "makeMom userId createdAt constituency leaderName designation dom meetingStatus gMapLocation zone pc"
+    )
       .sort({ createdAt: -1 })
       .limit(10000)
       .lean();
+
+    // One query to resolve all creator names (instead of thousands).
+    const legacyUserIds = [
+      ...new Set(legacy.map((m) => m.userId).filter(Boolean).map(String)),
+    ];
+    const users = await User.find(
+      { _id: { $in: legacyUserIds } },
+      "userName"
+    ).lean();
+    const nameById = new Map(users.map((u) => [String(u._id), u.userName]));
+
     const legacyRows = legacy.map((m) => ({
       _id: m._id,
       source: "legacy",
       momSubmitted: m.makeMom === "Yes",
-      createdByName: (m.userId && m.userId.userName) || "Unknown",
+      createdByName:
+        (m.userId && nameById.get(String(m.userId))) || "Unknown",
       createdAt: m.createdAt,
       location: m.constituency || "",
       respondentName: m.leaderName || "",
