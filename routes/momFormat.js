@@ -5,8 +5,53 @@ const NewMom = require("../models/NewMomModel");
 const BoothsAp = require("../models/BoothListAP");
 const User = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
+const multer = require("multer");
+const AWS = require("aws-sdk");
+
+const memUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
 
 router.use(authenticateUser);
+
+// ---- Respondent photo upload (server-side S3; keys stay on the server) ----
+router.post("/upload-photo", memUpload.single("photo"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded." });
+    if (
+      !process.env.AWS_ACCESS_KEY_ID ||
+      !process.env.AWS_SECRET_ACCESS_KEY ||
+      !process.env.AWS_REGION
+    ) {
+      return res
+        .status(500)
+        .json({ error: "Photo storage is not configured on the server." });
+    }
+    const s3 = new AWS.S3({
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      region: process.env.AWS_REGION,
+    });
+    const bucket = process.env.AWS_BUCKET || "mom-files-data-new";
+    const safeName = (req.file.originalname || "photo").replace(
+      /[^a-zA-Z0-9._-]/g,
+      "_"
+    );
+    const result = await s3
+      .upload({
+        Bucket: bucket,
+        Key: `respondents/${Date.now()}_${safeName}`,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      })
+      .promise();
+    res.status(200).json({ url: result.Location });
+  } catch (error) {
+    console.error("Photo upload failed:", error.message);
+    res.status(500).json({ error: "Photo upload failed." });
+  }
+});
 
 // ---- Create ----
 router.post("/save", async (req, res) => {
@@ -58,13 +103,46 @@ router.get("/meeting-photo/:id", async (req, res) => {
   }
 });
 
+// Build an Asia/Kolkata createdAt range filter from from/to (YYYY-MM-DD).
+const dateRangeFilter = (from, to) => {
+  if (!from && !to) return null;
+  const f = {};
+  if (from) f.$gte = new Date(`${from}T00:00:00+05:30`);
+  if (to) f.$lte = new Date(`${to}T23:59:59.999+05:30`);
+  return { createdAt: f };
+};
+
+// Lightweight true totals (no row loading) — fast count queries.
+router.get("/meeting-summary", async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const range = dateRangeFilter(from, to) || {};
+    const [fmtTotal, legTotal, legMom] = await Promise.all([
+      MomFormat.countDocuments(range),
+      NewMom.countDocuments(range),
+      NewMom.countDocuments({ ...range, makeMom: "Yes" }),
+    ]);
+    // All MomFormat rows count as a submitted MoM.
+    res.status(200).json({
+      total: fmtTotal + legTotal,
+      totalMom: fmtTotal + legMom,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/all-meetings", async (req, res) => {
   try {
-    // Fetch ONLY the fields the dashboard uses (tight projection) and .lean()
-    // for speed. The previous version returned full documents incl. large
-    // photo blobs, which timed out (504). The list never needs the photo.
+    const { from, to } = req.query;
+    const range = dateRangeFilter(from, to);
+    // Default (no date range): load only the most recent rows for speed.
+    // With a date range: load everything in that bounded window.
+    const DEFAULT_LIMIT = parseInt(req.query.limit, 10) || 3000;
+
+    // MomFormat (small collection) — always load all (optionally ranged).
     const fmt = await MomFormat.find(
-      {},
+      range || {},
       "createdByName createdAt location respondentName respondentDesignation meetingDate meetingTime gMapLocation reviewStatus zone pc"
     )
       .sort({ createdAt: -1 })
@@ -88,15 +166,15 @@ router.get("/all-meetings", async (req, res) => {
     }));
 
     // Legacy records — tight projection, NO per-row populate (that was the
-    // 181s bottleneck across ~15k rows). We resolve user names with ONE bulk
-    // lookup below instead.
-    const legacy = await NewMom.find(
-      {},
+    // 181s bottleneck). Capped to recent N by default; full within a date range.
+    let legacyQuery = NewMom.find(
+      range || {},
       "makeMom userId createdAt constituency leaderName designation dom meetingStatus gMapLocation zone pc"
     )
       .sort({ createdAt: -1 })
-      .limit(10000)
       .lean();
+    if (!range) legacyQuery = legacyQuery.limit(DEFAULT_LIMIT);
+    const legacy = await legacyQuery;
 
     // One query to resolve all creator names (instead of thousands).
     const legacyUserIds = [
