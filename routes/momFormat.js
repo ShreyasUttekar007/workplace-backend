@@ -38,9 +38,34 @@ router.get("/list", async (req, res) => {
 
 // ---- All meetings: NEW format + LEGACY records, normalized for the dashboard ----
 // NOTE: declared before "/:id" so it isn't captured as an id.
+// Fetch a single meeting's photo on demand (kept out of the list for speed).
+router.get("/meeting-photo/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const source = req.query.source || "format";
+    let photo = "";
+    if (source === "legacy") {
+      const m = await NewMom.findById(id).select("leaderPhoto").lean();
+      photo = (m && m.leaderPhoto) || "";
+    } else {
+      const r = await MomFormat.findById(id).select("respondentPhoto").lean();
+      photo = (r && r.respondentPhoto) || "";
+    }
+    res.status(200).json({ photo });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/all-meetings", async (req, res) => {
   try {
-    const fmt = await MomFormat.find().sort({ createdAt: -1 });
+    // Exclude the heavy photo blobs from the LIST payload (they can be large
+    // base64 images; returning thousands of them caused a 504 timeout). The
+    // list's photo column doesn't render the blob anyway. Use .lean() for speed.
+    const fmt = await MomFormat.find()
+      .select("-respondentPhoto")
+      .sort({ createdAt: -1 })
+      .lean();
     const formatRows = fmt.map((r) => ({
       _id: r._id,
       source: "format",
@@ -49,7 +74,7 @@ router.get("/all-meetings", async (req, res) => {
       createdAt: r.createdAt,
       location: r.location || "",
       respondentName: r.respondentName || "",
-      respondentPhoto: r.respondentPhoto || "",
+      respondentPhoto: "",
       respondentDesignation: r.respondentDesignation || "",
       meetingDate: r.meetingDate || "",
       meetingTime: r.meetingTime || "",
@@ -59,11 +84,13 @@ router.get("/all-meetings", async (req, res) => {
       pc: r.pc || "",
     }));
 
-    // Legacy records
+    // Legacy records (also without the photo blob).
     const legacy = await NewMom.find()
+      .select("-leaderPhoto")
       .populate("userId", "userName")
       .sort({ createdAt: -1 })
-      .limit(10000);
+      .limit(10000)
+      .lean();
     const legacyRows = legacy.map((m) => ({
       _id: m._id,
       source: "legacy",
@@ -72,7 +99,7 @@ router.get("/all-meetings", async (req, res) => {
       createdAt: m.createdAt,
       location: m.constituency || "",
       respondentName: m.leaderName || "",
-      respondentPhoto: m.leaderPhoto || "",
+      respondentPhoto: "",
       respondentDesignation: m.designation || "",
       meetingDate: m.dom || "",
       meetingTime: "",
