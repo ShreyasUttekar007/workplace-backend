@@ -47,7 +47,7 @@ router.get("/get-latest-mom/:userId", async (req, res) => {
     const query = {};
 
     // Ensure state-based filtering for all users, including admin
-    const allowedStates = ["Maharashtra", "Andhra Pradesh", "Bengal", "Uttar Pradesh"]; // <-- Added Uttar Pradesh
+    const allowedStates = ["Maharashtra", "Andhra Pradesh", "Bengal", "Uttar Pradesh", "Punjab"]; // <-- Added Punjab
     if (allowedStates.includes(userLocation)) {
       query.state = userLocation;
     }
@@ -210,7 +210,7 @@ router.get("/get-mom", async (req, res) => {
     const userId = req.user?._id?.toString();
 
     // Allowed states
-    const allowedStates = ["Maharashtra", "Andhra Pradesh", "Bengal", "Uttar Pradesh"]; // <-- Added Uttar Pradesh
+    const allowedStates = ["Maharashtra", "Andhra Pradesh", "Bengal", "Uttar Pradesh", "Punjab"]; // <-- Added Punjab
 
     // Build MongoDB query
     const query = {};

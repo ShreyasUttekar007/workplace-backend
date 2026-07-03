@@ -47,6 +47,10 @@ const cabRequestSchema = new mongoose.Schema(
     zone: { type: String, trim: true },
     pcName: { type: String, trim: true },
     acName: { type: String, trim: true },
+    // "Andhra Pradesh" (default flow) or "Punjab". For Punjab, the form maps
+    // Region -> zone, District -> pcName, AC -> acName, so no schema change is
+    // needed beyond remembering which state was selected.
+    state: { type: String, trim: true },
     team: { type: String, trim: true },
     designation: { type: String, trim: true },
     phoneNumber: { type: String, trim: true },

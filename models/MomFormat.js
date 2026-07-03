@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 const BoothsAp = require("../models/BoothListAP");
+const punjabGeo = require("../utils/punjabGeo");
 
 const StakeholderSchema = new Schema(
   {
@@ -54,6 +55,9 @@ const MomFormatSchema = new Schema(
     zone: { type: String, trim: true },
     district: { type: String, trim: true },
     pc: { type: String, trim: true },
+    // Punjab uses Region > District > AC. Region is stored here (and mirrored
+    // into `zone` so all existing zone-based filters/counts keep working).
+    region: { type: String, trim: true },
 
     // Respondent (primary stakeholder) — surfaced on the dashboard
     respondentName: { type: String, trim: true },
@@ -80,9 +84,24 @@ const MomFormatSchema = new Schema(
 
 // Populate zone / district / pc from the selected Assembly Constituency
 // so the dashboard Zone / PC / AC filters and counts work.
+// For Punjab, geography comes from the static Punjab file (Region > District >
+// AC); Region is stored in both `region` and `zone` so all existing zone-based
+// filters keep functioning without any special-casing downstream.
 async function fillGeography(doc) {
   try {
     if (!doc.location) return;
+
+    if ((doc.state || "").trim() === "Punjab") {
+      const hit = punjabGeo.lookupAc(doc.location);
+      if (hit) {
+        doc.region = hit.region;
+        doc.zone = hit.region; // mirror so zone filters/counts still work
+        doc.district = hit.district;
+        doc.pc = ""; // Punjab has no PC layer
+      }
+      return; // don't fall through to the AP booth lookup
+    }
+
     const ac = await BoothsAp.findOne({ constituency: doc.location });
     if (ac) {
       doc.zone = ac.zone;

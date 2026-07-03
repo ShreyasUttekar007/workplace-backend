@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const { Schema } = mongoose;
 const Booths = require("../models/BoothList");
 const BoothsAp = require("../models/BoothListAP");
+const punjabGeo = require("../utils/punjabGeo");
 
 const NewMomSchema = new Schema(
   {
@@ -146,6 +147,18 @@ NewMomSchema.pre("save", async function (next) {
       .select("email");
 
     let stateData;
+
+    // Punjab uses the static Region > District > AC file (no booth collection).
+    // Region is mirrored into `zone` so existing zone-based filtering keeps working.
+    if (this.state === "Punjab") {
+      const hit = punjabGeo.lookupAc(this.constituency);
+      if (hit) {
+        this.zone = hit.region;
+        this.district = hit.district;
+        this.pc = "";
+      }
+      return next();
+    }
 
     // Check state and fetch data from the appropriate collection
     if (this.state === "Maharashtra") {

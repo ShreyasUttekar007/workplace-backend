@@ -1,0 +1,170 @@
+[
+  {
+    "name": "Shibu Kumar",
+    "email": "shibu@showtimeconsulting.in",
+    "empId": "STC23365",
+    "role": "acm",
+    "region": "Majha"
+  },
+  {
+    "name": "Neelesh Kumar",
+    "email": "neelesh.kumar@showtimeconsulting.in",
+    "empId": "STC26020",
+    "role": "acm",
+    "region": "Majha"
+  },
+  {
+    "name": "Yogeshwar Chaudhary",
+    "email": "yogeshwar@showtimeconsulting.in",
+    "empId": "STC23159",
+    "role": "acm",
+    "region": "Majha"
+  },
+  {
+    "name": "Vikesh Kumar",
+    "email": "vikesh.kumar@showtimeconsulting.in",
+    "empId": "STC23601",
+    "role": "acm",
+    "region": "Majha"
+  },
+  {
+    "name": "Shadab Khan",
+    "email": "shadab.khan@showtimeconsulting.in",
+    "empId": "STC26026",
+    "role": "acm",
+    "region": "Majha"
+  },
+  {
+    "name": "Ravi Kumar Gupta",
+    "email": "ravi.kumar@showtimeconsulting.in",
+    "empId": "STC26018",
+    "role": "acm",
+    "region": "Doaba"
+  },
+  {
+    "name": "Divyanshu Kumar",
+    "email": "divyanshu@showtimeconsulting.in",
+    "empId": "STC23180",
+    "role": "acm",
+    "region": "Doaba"
+  },
+  {
+    "name": "Hrishikesh Yadav",
+    "email": "hrishikesh@showtimeconsulting.in",
+    "empId": "STC24018",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Md Shahzad Anjum",
+    "email": "shahzad.anjum@showtimeconsulting.in",
+    "empId": "STC23395",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Sandeep Prasad",
+    "email": "sandeep@showtimeconsulting.in",
+    "empId": "STC23476",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Mohit Kumar Gupta",
+    "email": "mohit.gupta@showtimeconsulting.in",
+    "empId": "STC23511",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Rahul Kumar",
+    "email": "rahul.kumar@showtimeconsulting.in",
+    "empId": "STC25049",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Anurag Tiwari",
+    "email": "anurag.tiwari@showtimeconsulting.in",
+    "empId": "STC26015",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Himanshu Yadav",
+    "email": "himanshu.yadav@showtimeconsulting.in",
+    "empId": "STC26010",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Yash Malhotra",
+    "email": "yash@showtimeconsulting.in",
+    "empId": "STC23510",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "DIBYENDU BISWAS",
+    "email": "dibyendu@showtimeconsulting.in",
+    "empId": "STC23591",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Avanish Kumar",
+    "email": "avanish@showtimeconsulting.in",
+    "empId": "STC23578",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Sanjib Bhattacharya",
+    "email": "sanjib@showtimeconsulting.in",
+    "empId": "STC22544",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "UJJAL BHATTACHARJEE",
+    "email": "ujjal.bhattacharjee@showtimeconsulting.in",
+    "empId": "STC25029",
+    "role": "acm",
+    "region": "Malwa"
+  },
+  {
+    "name": "Ashish Kumar",
+    "email": "ashish@showtimeconsulting.in",
+    "empId": "STC22404",
+    "role": "zonal",
+    "region": "Majha"
+  },
+  {
+    "name": "Rachit Dixit",
+    "email": "rachit.dixit@showtimeconsulting.in",
+    "empId": "STC26024",
+    "role": "zonal",
+    "region": "Doaba"
+  },
+  {
+    "name": "Sarvesh Vyas",
+    "email": "sarvesh.vyas@showtimeconsulting.in",
+    "empId": "STC23598",
+    "role": "zonal",
+    "region": "Malwa"
+  },
+  {
+    "name": "Rajvardhan Chauhan",
+    "email": "rajvardhan@showtimeconsulting.in",
+    "empId": "STC23487",
+    "role": "zonal",
+    "region": "Malwa"
+  },
+  {
+    "name": "Anirban Banerjee",
+    "email": "anirban@showtimeconsulting.in",
+    "empId": "STC22532",
+    "role": "zonal",
+    "region": "Malwa"
+  }
+]

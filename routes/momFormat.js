@@ -140,10 +140,17 @@ router.get("/all-meetings", async (req, res) => {
     // With a date range: load everything in that bounded window.
     const DEFAULT_LIMIT = parseInt(req.query.limit, 10) || 3000;
 
+    // State isolation: Punjab users see only Punjab meetings; everyone else
+    // sees everything EXCEPT Punjab (so the pilot data stays separate). This
+    // leaves the existing Maharashtra/AP/Bengal/UP experience unchanged.
+    const userState = (req.user && req.user.location) || "";
+    const stateScope =
+      userState === "Punjab" ? { state: "Punjab" } : { state: { $ne: "Punjab" } };
+
     // MomFormat (small collection) — always load all (optionally ranged).
     const fmt = await MomFormat.find(
-      range || {},
-      "createdByName createdAt location respondentName respondentDesignation meetingDate meetingTime gMapLocation reviewStatus zone pc"
+      { ...(range || {}), ...stateScope },
+      "createdByName createdAt location respondentName respondentDesignation meetingDate meetingTime gMapLocation reviewStatus zone pc region district"
     )
       .sort({ createdAt: -1 })
       .lean();
@@ -163,13 +170,15 @@ router.get("/all-meetings", async (req, res) => {
       reviewStatus: r.reviewStatus || "Not Reviewed",
       zone: r.zone || "",
       pc: r.pc || "",
+      region: r.region || "",
+      district: r.district || "",
     }));
 
     // Legacy records — tight projection, NO per-row populate (that was the
     // 181s bottleneck). Capped to recent N by default; full within a date range.
     let legacyQuery = NewMom.find(
-      range || {},
-      "makeMom userId createdAt constituency leaderName designation dom meetingStatus gMapLocation zone pc"
+      { ...(range || {}), ...stateScope },
+      "makeMom userId createdAt constituency leaderName designation dom meetingStatus gMapLocation zone pc district"
     )
       .sort({ createdAt: -1 })
       .lean();
@@ -203,6 +212,8 @@ router.get("/all-meetings", async (req, res) => {
       reviewStatus: m.meetingStatus || "Not Reviewed",
       zone: m.zone || "",
       pc: m.pc || "",
+      region: m.zone || "",
+      district: m.district || "",
     }));
 
     const all = [...formatRows, ...legacyRows].sort(
@@ -215,18 +226,25 @@ router.get("/all-meetings", async (req, res) => {
 });
 
 // ---- Summary of new-format meetings (same shape as /new-mom/get-mom rows) ----
+// Per-employee counts for the Leader Meeting Report. State-scoped: Punjab users
+// get Punjab team counts; everyone else gets non-Punjab counts.
 router.get("/summary", async (req, res) => {
   try {
     const { fromDate, toDate } = req.query;
-    const q = {};
+    const userState = (req.user && req.user.location) || "";
+    const stateScope =
+      userState === "Punjab" ? { state: "Punjab" } : { state: { $ne: "Punjab" } };
+    const q = { ...stateScope };
     if (fromDate && toDate) q.meetingDate = { $gte: fromDate, $lte: toDate };
     const recs = await MomFormat.find(q);
     const grouped = {};
     recs.forEach((r) => {
-      const key = `${r.pc || ""}-${r.location || ""}-${r.createdByName || ""}`;
+      const key = `${r.pc || ""}-${r.region || ""}-${r.district || ""}-${r.location || ""}-${r.createdByName || ""}`;
       if (!grouped[key]) {
         grouped[key] = {
           pc: r.pc || "",
+          region: r.region || "",
+          district: r.district || "",
           constituency: r.location || "",
           reportingManager: "",
           userName: r.createdByName || "Unknown",

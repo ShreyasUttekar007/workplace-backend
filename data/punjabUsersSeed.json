@@ -1,0 +1,647 @@
+[
+  {
+    "name": "Shibu Kumar",
+    "email": "shibu@showtimeconsulting.in",
+    "empId": "STC23365",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Majha",
+    "reportsTo": [
+      "ashish@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 4,
+        "ac_name": "GURDASPUR",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 9,
+        "ac_name": "FATEHGARH CHURIAN",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 10,
+        "ac_name": "DERA BABA NANAK",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      }
+    ]
+  },
+  {
+    "name": "Neelesh Kumar",
+    "email": "neelesh.kumar@showtimeconsulting.in",
+    "empId": "STC26020",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Majha",
+    "reportsTo": [
+      "ashish@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 6,
+        "ac_name": "QADIAN",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 8,
+        "ac_name": "SRI HARGOBINDPUR",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      }
+    ]
+  },
+  {
+    "name": "Yogeshwar Chaudhary",
+    "email": "yogeshwar@showtimeconsulting.in",
+    "empId": "STC23159",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Majha",
+    "reportsTo": [
+      "ashish@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 11,
+        "ac_name": "AJNALA",
+        "district": "Amritsar",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 12,
+        "ac_name": "RAJA SANSI",
+        "district": "Amritsar",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 13,
+        "ac_name": "MAJITHA",
+        "district": "Amritsar",
+        "region": "Majha"
+      }
+    ]
+  },
+  {
+    "name": "Vikesh Kumar",
+    "email": "vikesh.kumar@showtimeconsulting.in",
+    "empId": "STC23601",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Majha",
+    "reportsTo": [
+      "ashish@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 21,
+        "ac_name": "TARN TARAN",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 25,
+        "ac_name": "BABA BAKALA",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 24,
+        "ac_name": "KHADOOR SAHIB",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      }
+    ]
+  },
+  {
+    "name": "Shadab Khan",
+    "email": "shadab.khan@showtimeconsulting.in",
+    "empId": "STC26026",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Majha",
+    "reportsTo": [
+      "ashish@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 22,
+        "ac_name": "KHEM KARAN",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 23,
+        "ac_name": "PATTI",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      }
+    ]
+  },
+  {
+    "name": "Ravi Kumar Gupta",
+    "email": "ravi.kumar@showtimeconsulting.in",
+    "empId": "STC26018",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Doaba",
+    "reportsTo": [
+      "rachit.dixit@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 32,
+        "ac_name": "SHAHKOT",
+        "district": "Jalandhar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 31,
+        "ac_name": "NAKODAR",
+        "district": "Jalandhar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 33,
+        "ac_name": "KARTARPUR",
+        "district": "Jalandhar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 30,
+        "ac_name": "Phillaur",
+        "district": "Jalandhar",
+        "region": "Doaba"
+      }
+    ]
+  },
+  {
+    "name": "Divyanshu Kumar",
+    "email": "divyanshu@showtimeconsulting.in",
+    "empId": "STC23180",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Doaba",
+    "reportsTo": [
+      "rachit.dixit@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 45,
+        "ac_name": "GARHSHANKAR",
+        "district": "Hoshiarpur",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 46,
+        "ac_name": "BANGA",
+        "district": "SBS Nagar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 47,
+        "ac_name": "NAWAN SHAHR",
+        "district": "SBS Nagar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 48,
+        "ac_name": "BALACHAUR",
+        "district": "SBS Nagar",
+        "region": "Doaba"
+      }
+    ]
+  },
+  {
+    "name": "Hrishikesh Yadav",
+    "email": "hrishikesh@showtimeconsulting.in",
+    "empId": "STC24018",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "sarvesh.vyas@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 52,
+        "ac_name": "KHARAR",
+        "district": "SAS Nagar (Mohali)",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 53,
+        "ac_name": "SAS NAGAR",
+        "district": "SAS Nagar (Mohali)",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 112,
+        "ac_name": "DERA BASSI",
+        "district": "SAS Nagar (Mohali)",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Md Shahzad Anjum",
+    "email": "shahzad.anjum@showtimeconsulting.in",
+    "empId": "STC23395",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "sarvesh.vyas@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 57,
+        "ac_name": "KHANNA",
+        "district": "Ludhiana",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 58,
+        "ac_name": "SAMRALA",
+        "district": "Ludhiana",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 59,
+        "ac_name": "SAHNEWAL",
+        "district": "Ludhiana",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Sandeep Prasad",
+    "email": "sandeep@showtimeconsulting.in",
+    "empId": "STC23476",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "sarvesh.vyas@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 99,
+        "ac_name": "LEHRA",
+        "district": "Sangrur",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 100,
+        "ac_name": "DIRBA",
+        "district": "Sangrur",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 108,
+        "ac_name": "SANGRUR",
+        "district": "Sangrur",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Mohit Kumar Gupta",
+    "email": "mohit.gupta@showtimeconsulting.in",
+    "empId": "STC23511",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "sarvesh.vyas@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 102,
+        "ac_name": "BHADAUR",
+        "district": "Barnala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 103,
+        "ac_name": "BARNALA",
+        "district": "Barnala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 104,
+        "ac_name": "MEHAL KALAN",
+        "district": "Barnala",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Rahul Kumar",
+    "email": "rahul.kumar@showtimeconsulting.in",
+    "empId": "STC25049",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "sarvesh.vyas@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 109,
+        "ac_name": "NABHA",
+        "district": "Patiala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 114,
+        "ac_name": "SANOUR",
+        "district": "Patiala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 116,
+        "ac_name": "SAMANA",
+        "district": "Patiala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 117,
+        "ac_name": "SHUTRANA",
+        "district": "Patiala",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Anurag Tiwari",
+    "email": "anurag.tiwari@showtimeconsulting.in",
+    "empId": "STC26015",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "sarvesh.vyas@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 113,
+        "ac_name": "GHANAUR",
+        "district": "Patiala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 110,
+        "ac_name": "PATIALA RURAL",
+        "district": "Patiala",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Himanshu Yadav",
+    "email": "himanshu.yadav@showtimeconsulting.in",
+    "empId": "STC26010",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "anirban@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 71,
+        "ac_name": "Nihal Singhwala",
+        "district": "Moga",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 73,
+        "ac_name": "MOGA",
+        "district": "Moga",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Yash Malhotra",
+    "email": "yash@showtimeconsulting.in",
+    "empId": "STC23510",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "anirban@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 72,
+        "ac_name": "BHAGHA PURANA",
+        "district": "Moga",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 74,
+        "ac_name": "DHARAMKOT",
+        "district": "Moga",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "DIBYENDU BISWAS",
+    "email": "dibyendu@showtimeconsulting.in",
+    "empId": "STC23591",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "anirban@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 77,
+        "ac_name": "FIROZPUR RURAL",
+        "district": "Ferozepur",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 78,
+        "ac_name": "GURU HAR SAHAI",
+        "district": "Ferozepur",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 79,
+        "ac_name": "JALALABAD",
+        "district": "Fazilka",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Avanish Kumar",
+    "email": "avanish@showtimeconsulting.in",
+    "empId": "STC23578",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "anirban@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 87,
+        "ac_name": "FARIDKOT",
+        "district": "Faridkot",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 88,
+        "ac_name": "KOTKAPURA",
+        "district": "Faridkot",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 89,
+        "ac_name": "JAITU",
+        "district": "Faridkot",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Sanjib Bhattacharya",
+    "email": "sanjib@showtimeconsulting.in",
+    "empId": "STC22544",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "anirban@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 91,
+        "ac_name": "BHUCHO MANDI",
+        "district": "Bathinda",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 92,
+        "ac_name": "BATHINDA URBAN",
+        "district": "Bathinda",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 93,
+        "ac_name": "BATHINDA RURAL",
+        "district": "Bathinda",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 95,
+        "ac_name": "MAUR",
+        "district": "Bathinda",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "UJJAL BHATTACHARJEE",
+    "email": "ujjal.bhattacharjee@showtimeconsulting.in",
+    "empId": "STC25029",
+    "role": "acm",
+    "state": "Punjab",
+    "region": "Malwa",
+    "reportsTo": [
+      "anirban@showtimeconsulting.in",
+      "rajvardhan@showtimeconsulting.in"
+    ],
+    "acs": [
+      {
+        "ac_no": 96,
+        "ac_name": "MANSA",
+        "district": "Mansa",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 97,
+        "ac_name": "SARDULGARH",
+        "district": "Mansa",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 98,
+        "ac_name": "BUDHLADA",
+        "district": "Mansa",
+        "region": "Malwa"
+      }
+    ]
+  },
+  {
+    "name": "Ashish Kumar",
+    "email": "ashish@showtimeconsulting.in",
+    "empId": "STC22404",
+    "role": "zonal",
+    "state": "Punjab",
+    "regions": [
+      "Majha"
+    ]
+  },
+  {
+    "name": "Rachit Dixit",
+    "email": "rachit.dixit@showtimeconsulting.in",
+    "empId": "STC26024",
+    "role": "zonal",
+    "state": "Punjab",
+    "regions": [
+      "Doaba"
+    ]
+  },
+  {
+    "name": "Sarvesh Vyas",
+    "email": "sarvesh.vyas@showtimeconsulting.in",
+    "empId": "STC23598",
+    "role": "zonal",
+    "state": "Punjab",
+    "regions": [
+      "Malwa"
+    ]
+  },
+  {
+    "name": "Rajvardhan Chauhan",
+    "email": "rajvardhan@showtimeconsulting.in",
+    "empId": "STC23487",
+    "role": "zonal",
+    "state": "Punjab",
+    "regions": [
+      "Malwa"
+    ]
+  },
+  {
+    "name": "Anirban Banerjee",
+    "email": "anirban@showtimeconsulting.in",
+    "empId": "STC22532",
+    "role": "zonal",
+    "state": "Punjab",
+    "regions": [
+      "Malwa"
+    ]
+  }
+]

@@ -8,31 +8,41 @@ const NewMom = require("../models/NewMomModel");
 
 router.use(authenticateUser);
 
+// State scope for the daily report:
+//  - "Punjab"  -> the separate Punjab report ({ state: "Punjab" })
+//  - anything else / absent -> the existing default report (state missing or "")
+const pcmStateFilter = (state) =>
+  (state || "").trim() === "Punjab"
+    ? { state: "Punjab" }
+    : { state: { $in: [null, ""] } };
+
 // Get today's report (or null if not started yet)
 router.get("/today", async (req, res) => {
   try {
     const date = new Date().toISOString().split("T")[0];
-    const r = await PcmReport.findOne({ date });
+    const r = await PcmReport.findOne({ date, ...pcmStateFilter(req.query.state) });
     res.status(200).json(r || null);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// Upsert today's report
+// Upsert today's report (state-scoped: Punjab report is kept separate)
 router.post("/save", async (req, res) => {
   try {
     const date = req.body.date || new Date().toISOString().split("T")[0];
+    const state = (req.body.state || "").trim() === "Punjab" ? "Punjab" : "";
     const payload = {
       ...req.body,
       date,
+      state,
       updatedByEmail: (req.user && req.user.email) || req.body.updatedByEmail || "",
     };
-    const r = await PcmReport.findOneAndUpdate({ date }, payload, {
-      new: true,
-      upsert: true,
-      setDefaultsOnInsert: true,
-    });
+    const r = await PcmReport.findOneAndUpdate(
+      { date, ...pcmStateFilter(state) },
+      payload,
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
     res.status(200).json(r);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -91,9 +101,16 @@ router.get("/mom-counts", async (req, res) => {
     const startIST = new Date(`${date}T00:00:00+05:30`);
     const endIST = new Date(`${date}T23:59:59.999+05:30`);
 
+    // State scope: Punjab PCM tracker counts only Punjab meetings; the default
+    // tracker counts everything except Punjab (keeps existing behaviour intact).
+    const reqState = (req.query.state || "").trim();
+    const countStateScope =
+      reqState === "Punjab" ? { state: "Punjab" } : { state: { $ne: "Punjab" } };
+
     // New meetings (MomFormat).
     const fmt = await MomFormat.find({
       createdAt: { $gte: startIST, $lte: endIST },
+      ...countStateScope,
     }).select("createdByName createdAt");
     fmt.forEach((r) => add(r.createdByName));
 
@@ -101,6 +118,7 @@ router.get("/mom-counts", async (req, res) => {
     try {
       const legacy = await NewMom.find({
         createdAt: { $gte: startIST, $lte: endIST },
+        ...countStateScope,
       }).populate("userId", "userName");
       legacy.forEach((m) => add((m.userId && m.userId.userName) || ""));
     } catch (e) {

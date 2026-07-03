@@ -1,0 +1,423 @@
+{
+  "state": "Punjab",
+  "regions": {
+    "Doaba": {
+      "region": "Doaba",
+      "label": "Doaba (7 Seats)",
+      "districts": {
+        "Hoshiarpur": [
+          {
+            "ac_no": 45,
+            "ac_name": "GARHSHANKAR",
+            "display": "Garhshankar"
+          }
+        ],
+        "Jalandhar": [
+          {
+            "ac_no": 30,
+            "ac_name": "Phillaur",
+            "display": "Phillaur"
+          },
+          {
+            "ac_no": 31,
+            "ac_name": "NAKODAR",
+            "display": "Nakodar"
+          },
+          {
+            "ac_no": 32,
+            "ac_name": "SHAHKOT",
+            "display": "Shahkot"
+          },
+          {
+            "ac_no": 33,
+            "ac_name": "KARTARPUR",
+            "display": "Kartarpur"
+          }
+        ],
+        "SBS Nagar": [
+          {
+            "ac_no": 46,
+            "ac_name": "BANGA",
+            "display": "Banga"
+          },
+          {
+            "ac_no": 47,
+            "ac_name": "NAWAN SHAHR",
+            "display": "Nawan Shahr"
+          },
+          {
+            "ac_no": 48,
+            "ac_name": "BALACHAUR",
+            "display": "Balachaur"
+          }
+        ]
+      }
+    },
+    "Majha": {
+      "region": "Majha",
+      "label": "Majha (15 Seats)",
+      "districts": {
+        "Amritsar": [
+          {
+            "ac_no": 11,
+            "ac_name": "AJNALA",
+            "display": "Ajnala"
+          },
+          {
+            "ac_no": 12,
+            "ac_name": "RAJA SANSI",
+            "display": "Raja Sansi"
+          },
+          {
+            "ac_no": 13,
+            "ac_name": "MAJITHA",
+            "display": "Majitha"
+          },
+          {
+            "ac_no": 14,
+            "ac_name": "JANDIALA",
+            "display": "Jandiala"
+          },
+          {
+            "ac_no": 20,
+            "ac_name": "ATTARI",
+            "display": "Attari"
+          }
+        ],
+        "Gurdaspur": [
+          {
+            "ac_no": 4,
+            "ac_name": "GURDASPUR",
+            "display": "Gurdaspur"
+          },
+          {
+            "ac_no": 6,
+            "ac_name": "QADIAN",
+            "display": "Qadian"
+          },
+          {
+            "ac_no": 8,
+            "ac_name": "SRI HARGOBINDPUR",
+            "display": "Sri Hargobindpur"
+          },
+          {
+            "ac_no": 9,
+            "ac_name": "FATEHGARH CHURIAN",
+            "display": "Fatehgarh Churian"
+          },
+          {
+            "ac_no": 10,
+            "ac_name": "DERA BABA NANAK",
+            "display": "Dera Baba Nanak"
+          }
+        ],
+        "Tarn Taran": [
+          {
+            "ac_no": 21,
+            "ac_name": "TARN TARAN",
+            "display": "Tarn Taran"
+          },
+          {
+            "ac_no": 22,
+            "ac_name": "KHEM KARAN",
+            "display": "Khem Karan"
+          },
+          {
+            "ac_no": 23,
+            "ac_name": "PATTI",
+            "display": "Patti"
+          },
+          {
+            "ac_no": 24,
+            "ac_name": "KHADOOR SAHIB",
+            "display": "Khadoor Sahib"
+          },
+          {
+            "ac_no": 25,
+            "ac_name": "BABA BAKALA",
+            "display": "Baba Bakala"
+          }
+        ]
+      }
+    },
+    "Malwa": {
+      "region": "Malwa",
+      "label": "Malwa (49 Seats)",
+      "districts": {
+        "Barnala": [
+          {
+            "ac_no": 102,
+            "ac_name": "BHADAUR",
+            "display": "Bhadaur"
+          },
+          {
+            "ac_no": 103,
+            "ac_name": "BARNALA",
+            "display": "Barnala"
+          },
+          {
+            "ac_no": 104,
+            "ac_name": "MEHAL KALAN",
+            "display": "Mehal Kalan"
+          }
+        ],
+        "Bathinda": [
+          {
+            "ac_no": 90,
+            "ac_name": "RAMPURA PHUL",
+            "display": "Rampura Phul"
+          },
+          {
+            "ac_no": 91,
+            "ac_name": "BHUCHO MANDI",
+            "display": "Bhucho Mandi"
+          },
+          {
+            "ac_no": 92,
+            "ac_name": "BATHINDA URBAN",
+            "display": "Bathinda Urban"
+          },
+          {
+            "ac_no": 93,
+            "ac_name": "BATHINDA RURAL",
+            "display": "Bathinda Rural"
+          },
+          {
+            "ac_no": 94,
+            "ac_name": "TALWANDI SABO",
+            "display": "Talwandi Sabo"
+          },
+          {
+            "ac_no": 95,
+            "ac_name": "MAUR",
+            "display": "Maur"
+          }
+        ],
+        "Faridkot": [
+          {
+            "ac_no": 87,
+            "ac_name": "FARIDKOT",
+            "display": "Faridkot"
+          },
+          {
+            "ac_no": 88,
+            "ac_name": "KOTKAPURA",
+            "display": "Kotkapura"
+          },
+          {
+            "ac_no": 89,
+            "ac_name": "JAITU",
+            "display": "Jaitu"
+          }
+        ],
+        "Fatehgarh Sahib": [
+          {
+            "ac_no": 54,
+            "ac_name": "BASSI PATHANA",
+            "display": "Bassi Pathana"
+          },
+          {
+            "ac_no": 55,
+            "ac_name": "FATEHGARH SAHIB, Sirhind",
+            "display": "FATEHGARH SAHIB, Sirhind"
+          },
+          {
+            "ac_no": 56,
+            "ac_name": "AMLOH",
+            "display": "Amloh"
+          }
+        ],
+        "Fazilka": [
+          {
+            "ac_no": 79,
+            "ac_name": "JALALABAD",
+            "display": "Jalalabad"
+          },
+          {
+            "ac_no": 82,
+            "ac_name": "BALLUANA",
+            "display": "Balluana"
+          }
+        ],
+        "Ferozepur": [
+          {
+            "ac_no": 77,
+            "ac_name": "FIROZPUR RURAL",
+            "display": "Firozpur Rural"
+          },
+          {
+            "ac_no": 78,
+            "ac_name": "GURU HAR SAHAI",
+            "display": "Guru Har Sahai"
+          }
+        ],
+        "Ludhiana": [
+          {
+            "ac_no": 57,
+            "ac_name": "KHANNA",
+            "display": "Khanna"
+          },
+          {
+            "ac_no": 58,
+            "ac_name": "SAMRALA",
+            "display": "Samrala"
+          },
+          {
+            "ac_no": 59,
+            "ac_name": "SAHNEWAL",
+            "display": "Sahnewal"
+          },
+          {
+            "ac_no": 66,
+            "ac_name": "GILL",
+            "display": "Gill"
+          },
+          {
+            "ac_no": 70,
+            "ac_name": "JAGRAON",
+            "display": "Jagraon"
+          }
+        ],
+        "Malerkotla": [
+          {
+            "ac_no": 105,
+            "ac_name": "MALERKOTLA",
+            "display": "Malerkotla"
+          },
+          {
+            "ac_no": 106,
+            "ac_name": "AMARGARH",
+            "display": "Amargarh"
+          }
+        ],
+        "Mansa": [
+          {
+            "ac_no": 96,
+            "ac_name": "MANSA",
+            "display": "Mansa"
+          },
+          {
+            "ac_no": 97,
+            "ac_name": "SARDULGARH",
+            "display": "Sardulgarh"
+          },
+          {
+            "ac_no": 98,
+            "ac_name": "BUDHLADA",
+            "display": "Budhlada"
+          }
+        ],
+        "Moga": [
+          {
+            "ac_no": 71,
+            "ac_name": "Nihal Singhwala",
+            "display": "Nihal Singhwala"
+          },
+          {
+            "ac_no": 72,
+            "ac_name": "BHAGHA PURANA",
+            "display": "Bhagha Purana"
+          },
+          {
+            "ac_no": 73,
+            "ac_name": "MOGA",
+            "display": "Moga"
+          },
+          {
+            "ac_no": 74,
+            "ac_name": "DHARAMKOT",
+            "display": "Dharamkot"
+          }
+        ],
+        "Patiala": [
+          {
+            "ac_no": 109,
+            "ac_name": "NABHA",
+            "display": "Nabha"
+          },
+          {
+            "ac_no": 110,
+            "ac_name": "PATIALA RURAL",
+            "display": "Patiala Rural"
+          },
+          {
+            "ac_no": 113,
+            "ac_name": "GHANAUR",
+            "display": "Ghanaur"
+          },
+          {
+            "ac_no": 114,
+            "ac_name": "SANOUR",
+            "display": "Sanour"
+          },
+          {
+            "ac_no": 116,
+            "ac_name": "SAMANA",
+            "display": "Samana"
+          },
+          {
+            "ac_no": 117,
+            "ac_name": "SHUTRANA",
+            "display": "Shutrana"
+          }
+        ],
+        "SAS Nagar (Mohali)": [
+          {
+            "ac_no": 52,
+            "ac_name": "KHARAR",
+            "display": "Kharar"
+          },
+          {
+            "ac_no": 53,
+            "ac_name": "SAS NAGAR",
+            "display": "Sas Nagar"
+          },
+          {
+            "ac_no": 112,
+            "ac_name": "DERA BASSI",
+            "display": "Dera Bassi"
+          }
+        ],
+        "Sangrur": [
+          {
+            "ac_no": 99,
+            "ac_name": "LEHRA",
+            "display": "Lehra"
+          },
+          {
+            "ac_no": 100,
+            "ac_name": "DIRBA",
+            "display": "Dirba"
+          },
+          {
+            "ac_no": 108,
+            "ac_name": "SANGRUR",
+            "display": "Sangrur"
+          }
+        ],
+        "Sri Muktsar Sahib": [
+          {
+            "ac_no": 83,
+            "ac_name": "LAMBI",
+            "display": "Lambi"
+          },
+          {
+            "ac_no": 84,
+            "ac_name": "GIDDERBAHA",
+            "display": "Gidderbaha"
+          },
+          {
+            "ac_no": 85,
+            "ac_name": "MALOUT",
+            "display": "Malout"
+          },
+          {
+            "ac_no": 86,
+            "ac_name": "MUKTSAR",
+            "display": "Muktsar"
+          }
+        ]
+      }
+    }
+  }
+}

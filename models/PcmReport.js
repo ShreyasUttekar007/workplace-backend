@@ -43,7 +43,10 @@ const SnapshotSchema = new mongoose.Schema(
 
 const PcmReportSchema = new mongoose.Schema(
   {
-    date: { type: String, index: true }, // YYYY-MM-DD (one report per day)
+    date: { type: String, index: true }, // YYYY-MM-DD (one report per day per state)
+    // "" / "Andhra Pradesh" = existing default report; "Punjab" = separate
+    // Punjab daily report whose "PC Mapped" column holds Punjab field-team names.
+    state: { type: String, default: "", index: true },
     snapshot: SnapshotSchema,
     pcmRows: [PcmRowSchema],
     zonalRows: [ZonalRowSchema],
