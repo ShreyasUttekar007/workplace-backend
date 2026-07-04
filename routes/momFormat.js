@@ -16,6 +16,20 @@ const memUpload = multer({
 
 router.use(authenticateUser);
 
+// State + role aware scope for MoM list/summary queries.
+//  - Non-Punjab users: everything except Punjab (unchanged behaviour).
+//  - Punjab admin/mod/state: all Punjab.
+//  - Punjab Zonal/PCM: only their mapped regions/districts/ACs.
+//  - Punjab user with no mapping: only their own records.
+function punjabAwareStateScope(req) {
+  const userState = (req.user && req.user.location) || "";
+  if (userState !== "Punjab") return { state: { $ne: "Punjab" } };
+  const sc = punjabGeo.punjabScope((req.user && req.user.roles) || []);
+  if (sc.mode === "all") return { state: "Punjab" };
+  if (sc.mode === "geo") return { state: "Punjab", ...sc.filter };
+  return { state: "Punjab", createdByEmail: (req.user && req.user.email) || "__none__" };
+}
+
 // ---- Respondent photo upload (server-side S3; keys stay on the server) ----
 router.post("/upload-photo", memUpload.single("photo"), async (req, res) => {
   try {
@@ -144,9 +158,7 @@ router.get("/all-meetings", async (req, res) => {
     // State isolation: Punjab users see only Punjab meetings; everyone else
     // sees everything EXCEPT Punjab (so the pilot data stays separate). This
     // leaves the existing Maharashtra/AP/Bengal/UP experience unchanged.
-    const userState = (req.user && req.user.location) || "";
-    const stateScope =
-      userState === "Punjab" ? { state: "Punjab" } : { state: { $ne: "Punjab" } };
+    const stateScope = punjabAwareStateScope(req);
 
     // MomFormat (small collection) — always load all (optionally ranged).
     const fmt = await MomFormat.find(
@@ -232,9 +244,7 @@ router.get("/all-meetings", async (req, res) => {
 router.get("/summary", async (req, res) => {
   try {
     const { fromDate, toDate } = req.query;
-    const userState = (req.user && req.user.location) || "";
-    const stateScope =
-      userState === "Punjab" ? { state: "Punjab" } : { state: { $ne: "Punjab" } };
+    const stateScope = punjabAwareStateScope(req);
     const q = { ...stateScope };
     if (fromDate && toDate) q.meetingDate = { $gte: fromDate, $lte: toDate };
     const recs = await MomFormat.find(q);

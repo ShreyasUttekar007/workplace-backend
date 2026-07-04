@@ -18,6 +18,10 @@ const {
   districtRolesUp,
   parliamentaryConstituencyRolesUp,
   assemblyConstituenciesUp,
+  regionRolesPunjab,
+  districtRolesPunjab,
+  assemblyConstituenciesPunjab,
+  punjabRoleTypes,
 } = require("../models/roles");
 
 const UserSchema = new Schema(
@@ -90,6 +94,10 @@ const UserSchema = new Schema(
             ...districtRolesUp,
             ...parliamentaryConstituencyRolesUp,
             ...assemblyConstituenciesUp,
+            ...regionRolesPunjab,
+            ...districtRolesPunjab,
+            ...assemblyConstituenciesPunjab,
+            ...punjabRoleTypes,
           ],
         },
       ],

@@ -68,6 +68,40 @@ function managerFor(email) {
   return MANAGER_BY_EMAIL[String(email).trim().toLowerCase()] || "";
 }
 
+// Sets of valid Punjab region / district / AC names for classifying roles.
+const REGION_SET = new Set(Object.keys(GEO.regions || {}));
+const DISTRICT_SET = new Set();
+const AC_SET = new Set();
+for (const region of Object.values(GEO.regions || {})) {
+  for (const [district, list] of Object.entries(region.districts || {})) {
+    DISTRICT_SET.add(district);
+    for (const ac of list) AC_SET.add(ac.ac_name);
+  }
+}
+
+// Given a user's roles array, decide how to scope their Punjab MoM view.
+//  - mode "all": admin / mod / state  -> every Punjab record
+//  - mode "geo": Zonal/PCM mapped to regions/districts/ACs -> only those
+//  - mode "own": Punjab user with no geo mapping -> only their own records
+function punjabScope(roles = []) {
+  const r = Array.isArray(roles) ? roles.map((x) => String(x)) : [];
+  const low = r.map((x) => x.toLowerCase());
+  if (low.includes("admin") || low.includes("mod") || low.includes("state")) {
+    return { mode: "all" };
+  }
+  const regions = r.filter((x) => REGION_SET.has(x));
+  const districts = r.filter((x) => DISTRICT_SET.has(x));
+  const acs = r.filter((x) => AC_SET.has(x));
+  if (regions.length || districts.length || acs.length) {
+    const or = [];
+    if (acs.length) or.push({ location: { $in: acs } });
+    if (districts.length) or.push({ district: { $in: districts } });
+    if (regions.length) or.push({ zone: { $in: regions } }); // region mirrored into zone
+    return { mode: "geo", filter: { $or: or } };
+  }
+  return { mode: "own" };
+}
+
 // The nested tree for the frontend cascading dropdowns.
 function tree() {
   return GEO;
@@ -86,4 +120,4 @@ function acList() {
   return acs;
 }
 
-module.exports = { tree, acList, lookupAc, managerFor, GEO };
+module.exports = { tree, acList, lookupAc, managerFor, punjabScope, GEO };
