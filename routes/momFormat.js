@@ -5,6 +5,7 @@ const NewMom = require("../models/NewMomModel");
 const BoothsAp = require("../models/BoothListAP");
 const User = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
+const punjabGeo = require("../utils/punjabGeo");
 const multer = require("multer");
 const AWS = require("aws-sdk");
 
@@ -246,8 +247,8 @@ router.get("/summary", async (req, res) => {
           region: r.region || "",
           district: r.district || "",
           constituency: r.location || "",
-          reportingManager: "",
           userName: r.createdByName || "Unknown",
+          reportingManager: punjabGeo.managerFor(r.createdByEmail),
           yes: 0,
           no: 0,
           nonShsCount: 0,

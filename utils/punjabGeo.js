@@ -42,6 +42,32 @@ function lookupAc(acName) {
   return AC_INDEX[String(acName).trim().toLowerCase()] || null;
 }
 
+// Build email -> reporting-manager-name map from the Punjab seed.
+let MANAGER_BY_EMAIL = {};
+try {
+  const seed = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "..", "data", "punjabUsersSeed.json"), "utf8")
+  );
+  const nameByEmail = {};
+  seed.forEach((u) => {
+    if (u.email) nameByEmail[u.email.toLowerCase()] = u.name;
+  });
+  seed.forEach((u) => {
+    if (u.role === "acm" && Array.isArray(u.reportsTo) && u.reportsTo.length) {
+      const mgrEmail = u.reportsTo[0].toLowerCase();
+      MANAGER_BY_EMAIL[u.email.toLowerCase()] = nameByEmail[mgrEmail] || "";
+    }
+  });
+} catch (e) {
+  console.error("[punjabGeo] could not build manager map:", e.message);
+}
+
+// Reporting manager name for a recorder's email (Punjab). "" if unknown.
+function managerFor(email) {
+  if (!email) return "";
+  return MANAGER_BY_EMAIL[String(email).trim().toLowerCase()] || "";
+}
+
 // The nested tree for the frontend cascading dropdowns.
 function tree() {
   return GEO;
@@ -60,4 +86,4 @@ function acList() {
   return acs;
 }
 
-module.exports = { tree, acList, lookupAc, GEO };
+module.exports = { tree, acList, lookupAc, managerFor, GEO };

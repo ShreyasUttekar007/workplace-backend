@@ -4,167 +4,1415 @@
     "email": "shibu@showtimeconsulting.in",
     "empId": "STC23365",
     "role": "acm",
-    "region": "Majha"
+    "region": "Majha",
+    "acs": [
+      {
+        "ac_no": 4,
+        "ac_name": "GURDASPUR",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 9,
+        "ac_name": "FATEHGARH CHURIAN",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 10,
+        "ac_name": "DERA BABA NANAK",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      }
+    ],
+    "reportsTo": "Ashish Kumar"
   },
   {
     "name": "Neelesh Kumar",
     "email": "neelesh.kumar@showtimeconsulting.in",
     "empId": "STC26020",
     "role": "acm",
-    "region": "Majha"
+    "region": "Majha",
+    "acs": [
+      {
+        "ac_no": 6,
+        "ac_name": "QADIAN",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 8,
+        "ac_name": "SRI HARGOBINDPUR",
+        "district": "Gurdaspur",
+        "region": "Majha"
+      }
+    ],
+    "reportsTo": "Ashish Kumar"
   },
   {
     "name": "Yogeshwar Chaudhary",
     "email": "yogeshwar@showtimeconsulting.in",
     "empId": "STC23159",
     "role": "acm",
-    "region": "Majha"
+    "region": "Majha",
+    "acs": [
+      {
+        "ac_no": 11,
+        "ac_name": "AJNALA",
+        "district": "Amritsar",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 12,
+        "ac_name": "RAJA SANSI",
+        "district": "Amritsar",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 13,
+        "ac_name": "MAJITHA",
+        "district": "Amritsar",
+        "region": "Majha"
+      }
+    ],
+    "reportsTo": "Ashish Kumar"
   },
   {
     "name": "Vikesh Kumar",
     "email": "vikesh.kumar@showtimeconsulting.in",
     "empId": "STC23601",
     "role": "acm",
-    "region": "Majha"
+    "region": "Majha",
+    "acs": [
+      {
+        "ac_no": 21,
+        "ac_name": "TARN TARAN",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 25,
+        "ac_name": "BABA BAKALA",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 24,
+        "ac_name": "KHADOOR SAHIB",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      }
+    ],
+    "reportsTo": "Ashish Kumar"
   },
   {
     "name": "Shadab Khan",
     "email": "shadab.khan@showtimeconsulting.in",
     "empId": "STC26026",
     "role": "acm",
-    "region": "Majha"
+    "region": "Majha",
+    "acs": [
+      {
+        "ac_no": 22,
+        "ac_name": "KHEM KARAN",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      },
+      {
+        "ac_no": 23,
+        "ac_name": "PATTI",
+        "district": "Tarn Taran",
+        "region": "Majha"
+      }
+    ],
+    "reportsTo": "Ashish Kumar"
   },
   {
     "name": "Ravi Kumar Gupta",
     "email": "ravi.kumar@showtimeconsulting.in",
     "empId": "STC26018",
     "role": "acm",
-    "region": "Doaba"
+    "region": "Doaba",
+    "acs": [
+      {
+        "ac_no": 32,
+        "ac_name": "SHAHKOT",
+        "district": "Jalandhar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 31,
+        "ac_name": "NAKODAR",
+        "district": "Jalandhar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 33,
+        "ac_name": "KARTARPUR",
+        "district": "Jalandhar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 30,
+        "ac_name": "Phillaur",
+        "district": "Jalandhar",
+        "region": "Doaba"
+      }
+    ],
+    "reportsTo": "Rachit Dixit"
   },
   {
     "name": "Divyanshu Kumar",
     "email": "divyanshu@showtimeconsulting.in",
     "empId": "STC23180",
     "role": "acm",
-    "region": "Doaba"
+    "region": "Doaba",
+    "acs": [
+      {
+        "ac_no": 45,
+        "ac_name": "GARHSHANKAR",
+        "district": "Hoshiarpur",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 46,
+        "ac_name": "BANGA",
+        "district": "SBS Nagar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 47,
+        "ac_name": "NAWAN SHAHR",
+        "district": "SBS Nagar",
+        "region": "Doaba"
+      },
+      {
+        "ac_no": 48,
+        "ac_name": "BALACHAUR",
+        "district": "SBS Nagar",
+        "region": "Doaba"
+      }
+    ],
+    "reportsTo": "Rachit Dixit"
   },
   {
     "name": "Hrishikesh Yadav",
     "email": "hrishikesh@showtimeconsulting.in",
     "empId": "STC24018",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 52,
+        "ac_name": "KHARAR",
+        "district": "SAS Nagar (Mohali)",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 53,
+        "ac_name": "SAS NAGAR",
+        "district": "SAS Nagar (Mohali)",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 112,
+        "ac_name": "DERA BASSI",
+        "district": "SAS Nagar (Mohali)",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Sarvesh Vyas"
   },
   {
     "name": "Md Shahzad Anjum",
     "email": "shahzad.anjum@showtimeconsulting.in",
     "empId": "STC23395",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 57,
+        "ac_name": "KHANNA",
+        "district": "Ludhiana",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 58,
+        "ac_name": "SAMRALA",
+        "district": "Ludhiana",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 59,
+        "ac_name": "SAHNEWAL",
+        "district": "Ludhiana",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Sarvesh Vyas"
   },
   {
     "name": "Sandeep Prasad",
     "email": "sandeep@showtimeconsulting.in",
     "empId": "STC23476",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 99,
+        "ac_name": "LEHRA",
+        "district": "Sangrur",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 100,
+        "ac_name": "DIRBA",
+        "district": "Sangrur",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 108,
+        "ac_name": "SANGRUR",
+        "district": "Sangrur",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Sarvesh Vyas"
   },
   {
     "name": "Mohit Kumar Gupta",
     "email": "mohit.gupta@showtimeconsulting.in",
     "empId": "STC23511",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 102,
+        "ac_name": "BHADAUR",
+        "district": "Barnala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 103,
+        "ac_name": "BARNALA",
+        "district": "Barnala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 104,
+        "ac_name": "MEHAL KALAN",
+        "district": "Barnala",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Sarvesh Vyas"
   },
   {
     "name": "Rahul Kumar",
     "email": "rahul.kumar@showtimeconsulting.in",
     "empId": "STC25049",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 109,
+        "ac_name": "NABHA",
+        "district": "Patiala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 114,
+        "ac_name": "SANOUR",
+        "district": "Patiala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 116,
+        "ac_name": "SAMANA",
+        "district": "Patiala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 117,
+        "ac_name": "SHUTRANA",
+        "district": "Patiala",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Sarvesh Vyas"
   },
   {
     "name": "Anurag Tiwari",
     "email": "anurag.tiwari@showtimeconsulting.in",
     "empId": "STC26015",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 113,
+        "ac_name": "GHANAUR",
+        "district": "Patiala",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 110,
+        "ac_name": "PATIALA RURAL",
+        "district": "Patiala",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Sarvesh Vyas"
   },
   {
     "name": "Himanshu Yadav",
-    "email": "himashu.yadav@showtimeconsulting.in",
+    "email": "himanshu.yadav@showtimeconsulting.in",
     "empId": "STC26010",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 71,
+        "ac_name": "Nihal Singhwala",
+        "district": "Moga",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 73,
+        "ac_name": "MOGA",
+        "district": "Moga",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Anirban Banerjee"
   },
   {
     "name": "Yash Malhotra",
     "email": "yash@showtimeconsulting.in",
     "empId": "STC23510",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 72,
+        "ac_name": "BHAGHA PURANA",
+        "district": "Moga",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 74,
+        "ac_name": "DHARAMKOT",
+        "district": "Moga",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Anirban Banerjee"
   },
   {
     "name": "DIBYENDU BISWAS",
     "email": "dibyendu@showtimeconsulting.in",
     "empId": "STC23591",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 77,
+        "ac_name": "FIROZPUR RURAL",
+        "district": "Ferozepur",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 78,
+        "ac_name": "GURU HAR SAHAI",
+        "district": "Ferozepur",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 79,
+        "ac_name": "JALALABAD",
+        "district": "Fazilka",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Anirban Banerjee"
   },
   {
     "name": "Avanish Kumar",
     "email": "avanish@showtimeconsulting.in",
     "empId": "STC23578",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 87,
+        "ac_name": "FARIDKOT",
+        "district": "Faridkot",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 88,
+        "ac_name": "KOTKAPURA",
+        "district": "Faridkot",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 89,
+        "ac_name": "JAITU",
+        "district": "Faridkot",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Anirban Banerjee"
   },
   {
     "name": "Sanjib Bhattacharya",
     "email": "sanjib@showtimeconsulting.in",
     "empId": "STC22544",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 91,
+        "ac_name": "BHUCHO MANDI",
+        "district": "Bathinda",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 92,
+        "ac_name": "BATHINDA URBAN",
+        "district": "Bathinda",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 93,
+        "ac_name": "BATHINDA RURAL",
+        "district": "Bathinda",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 95,
+        "ac_name": "MAUR",
+        "district": "Bathinda",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Anirban Banerjee"
   },
   {
     "name": "UJJAL BHATTACHARJEE",
     "email": "ujjal.bhattacharjee@showtimeconsulting.in",
     "empId": "STC25029",
     "role": "acm",
-    "region": "Malwa"
+    "region": "Malwa",
+    "acs": [
+      {
+        "ac_no": 96,
+        "ac_name": "MANSA",
+        "district": "Mansa",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 97,
+        "ac_name": "SARDULGARH",
+        "district": "Mansa",
+        "region": "Malwa"
+      },
+      {
+        "ac_no": 98,
+        "ac_name": "BUDHLADA",
+        "district": "Mansa",
+        "region": "Malwa"
+      }
+    ],
+    "reportsTo": "Anirban Banerjee"
   },
   {
     "name": "Ashish Kumar",
     "email": "ashish@showtimeconsulting.in",
-    "empId": "STC22404",
     "role": "zonal",
+    "acs": [
+      {
+        "ac_no": 4,
+        "ac_name": "GURDASPUR",
+        "district": "Gurdaspur"
+      },
+      {
+        "ac_no": 9,
+        "ac_name": "FATEHGARH CHURIAN",
+        "district": "Gurdaspur"
+      },
+      {
+        "ac_no": 10,
+        "ac_name": "DERA BABA NANAK",
+        "district": "Gurdaspur"
+      },
+      {
+        "ac_no": 6,
+        "ac_name": "QADIAN",
+        "district": "Gurdaspur"
+      },
+      {
+        "ac_no": 8,
+        "ac_name": "SRI HARGOBINDPUR",
+        "district": "Gurdaspur"
+      },
+      {
+        "ac_no": 11,
+        "ac_name": "AJNALA",
+        "district": "Amritsar"
+      },
+      {
+        "ac_no": 12,
+        "ac_name": "RAJA SANSI",
+        "district": "Amritsar"
+      },
+      {
+        "ac_no": 13,
+        "ac_name": "MAJITHA",
+        "district": "Amritsar"
+      },
+      {
+        "ac_no": 20,
+        "ac_name": "ATTARI",
+        "district": "Amritsar"
+      },
+      {
+        "ac_no": 14,
+        "ac_name": "JANDIALA",
+        "district": "Amritsar"
+      },
+      {
+        "ac_no": 21,
+        "ac_name": "TARN TARAN",
+        "district": "Tarn Taran"
+      },
+      {
+        "ac_no": 25,
+        "ac_name": "BABA BAKALA",
+        "district": "Tarn Taran"
+      },
+      {
+        "ac_no": 24,
+        "ac_name": "KHADOOR SAHIB",
+        "district": "Tarn Taran"
+      },
+      {
+        "ac_no": 22,
+        "ac_name": "KHEM KARAN",
+        "district": "Tarn Taran"
+      },
+      {
+        "ac_no": 23,
+        "ac_name": "PATTI",
+        "district": "Tarn Taran"
+      }
+    ],
     "region": "Majha"
   },
   {
     "name": "Rachit Dixit",
     "email": "rachit.dixit@showtimeconsulting.in",
-    "empId": "STC26024",
     "role": "zonal",
+    "acs": [
+      {
+        "ac_no": 32,
+        "ac_name": "SHAHKOT",
+        "district": "Jalandhar"
+      },
+      {
+        "ac_no": 31,
+        "ac_name": "NAKODAR",
+        "district": "Jalandhar"
+      },
+      {
+        "ac_no": 33,
+        "ac_name": "KARTARPUR",
+        "district": "Jalandhar"
+      },
+      {
+        "ac_no": 30,
+        "ac_name": "Phillaur",
+        "district": "Jalandhar"
+      },
+      {
+        "ac_no": 45,
+        "ac_name": "GARHSHANKAR",
+        "district": "Hoshiarpur"
+      },
+      {
+        "ac_no": 46,
+        "ac_name": "BANGA",
+        "district": "SBS Nagar"
+      },
+      {
+        "ac_no": 47,
+        "ac_name": "NAWAN SHAHR",
+        "district": "SBS Nagar"
+      },
+      {
+        "ac_no": 48,
+        "ac_name": "BALACHAUR",
+        "district": "SBS Nagar"
+      }
+    ],
     "region": "Doaba"
   },
   {
     "name": "Sarvesh Vyas",
     "email": "sarvesh.vyas@showtimeconsulting.in",
-    "empId": "STC23598",
     "role": "zonal",
+    "acs": [
+      {
+        "ac_no": 52,
+        "ac_name": "KHARAR",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 53,
+        "ac_name": "SAS NAGAR",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 112,
+        "ac_name": "DERA BASSI",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 54,
+        "ac_name": "BASSI PATHANA",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 55,
+        "ac_name": "FATEHGARH SAHIB, Sirhind",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 56,
+        "ac_name": "AMLOH",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 57,
+        "ac_name": "KHANNA",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 58,
+        "ac_name": "SAMRALA",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 59,
+        "ac_name": "SAHNEWAL",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 66,
+        "ac_name": "GILL",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 70,
+        "ac_name": "JAGRAON",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 99,
+        "ac_name": "LEHRA",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 100,
+        "ac_name": "DIRBA",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 108,
+        "ac_name": "SANGRUR",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 102,
+        "ac_name": "BHADAUR",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 103,
+        "ac_name": "BARNALA",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 104,
+        "ac_name": "MEHAL KALAN",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 105,
+        "ac_name": "MALERKOTLA",
+        "district": "Malerkotla"
+      },
+      {
+        "ac_no": 106,
+        "ac_name": "AMARGARH",
+        "district": "Malerkotla"
+      },
+      {
+        "ac_no": 109,
+        "ac_name": "NABHA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 113,
+        "ac_name": "GHANAUR",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 110,
+        "ac_name": "PATIALA RURAL",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 114,
+        "ac_name": "SANOUR",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 116,
+        "ac_name": "SAMANA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 117,
+        "ac_name": "SHUTRANA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 71,
+        "ac_name": "Nihal Singhwala",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 73,
+        "ac_name": "MOGA",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 72,
+        "ac_name": "BHAGHA PURANA",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 74,
+        "ac_name": "DHARAMKOT",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 77,
+        "ac_name": "FIROZPUR RURAL",
+        "district": "Ferozepur"
+      },
+      {
+        "ac_no": 78,
+        "ac_name": "GURU HAR SAHAI",
+        "district": "Ferozepur"
+      },
+      {
+        "ac_no": 79,
+        "ac_name": "JALALABAD",
+        "district": "Fazilka"
+      },
+      {
+        "ac_no": 82,
+        "ac_name": "BALLUANA",
+        "district": "Fazilka"
+      },
+      {
+        "ac_no": 83,
+        "ac_name": "LAMBI",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 85,
+        "ac_name": "MALOUT",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 84,
+        "ac_name": "GIDDERBAHA",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 86,
+        "ac_name": "MUKTSAR",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 87,
+        "ac_name": "FARIDKOT",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 88,
+        "ac_name": "KOTKAPURA",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 89,
+        "ac_name": "JAITU",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 90,
+        "ac_name": "RAMPURA PHUL",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 94,
+        "ac_name": "TALWANDI SABO",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 91,
+        "ac_name": "BHUCHO MANDI",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 92,
+        "ac_name": "BATHINDA URBAN",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 93,
+        "ac_name": "BATHINDA RURAL",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 95,
+        "ac_name": "MAUR",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 96,
+        "ac_name": "MANSA",
+        "district": "Mansa"
+      },
+      {
+        "ac_no": 97,
+        "ac_name": "SARDULGARH",
+        "district": "Mansa"
+      },
+      {
+        "ac_no": 98,
+        "ac_name": "BUDHLADA",
+        "district": "Mansa"
+      }
+    ],
     "region": "Malwa"
   },
   {
     "name": "Rajvardhan Chauhan",
     "email": "rajvardhan@showtimeconsulting.in",
-    "empId": "STC23487",
     "role": "zonal",
+    "acs": [
+      {
+        "ac_no": 52,
+        "ac_name": "KHARAR",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 53,
+        "ac_name": "SAS NAGAR",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 112,
+        "ac_name": "DERA BASSI",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 54,
+        "ac_name": "BASSI PATHANA",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 55,
+        "ac_name": "FATEHGARH SAHIB, Sirhind",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 56,
+        "ac_name": "AMLOH",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 57,
+        "ac_name": "KHANNA",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 58,
+        "ac_name": "SAMRALA",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 59,
+        "ac_name": "SAHNEWAL",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 66,
+        "ac_name": "GILL",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 70,
+        "ac_name": "JAGRAON",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 99,
+        "ac_name": "LEHRA",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 100,
+        "ac_name": "DIRBA",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 108,
+        "ac_name": "SANGRUR",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 102,
+        "ac_name": "BHADAUR",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 103,
+        "ac_name": "BARNALA",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 104,
+        "ac_name": "MEHAL KALAN",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 105,
+        "ac_name": "MALERKOTLA",
+        "district": "Malerkotla"
+      },
+      {
+        "ac_no": 106,
+        "ac_name": "AMARGARH",
+        "district": "Malerkotla"
+      },
+      {
+        "ac_no": 109,
+        "ac_name": "NABHA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 113,
+        "ac_name": "GHANAUR",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 110,
+        "ac_name": "PATIALA RURAL",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 114,
+        "ac_name": "SANOUR",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 116,
+        "ac_name": "SAMANA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 117,
+        "ac_name": "SHUTRANA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 71,
+        "ac_name": "Nihal Singhwala",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 73,
+        "ac_name": "MOGA",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 72,
+        "ac_name": "BHAGHA PURANA",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 74,
+        "ac_name": "DHARAMKOT",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 77,
+        "ac_name": "FIROZPUR RURAL",
+        "district": "Ferozepur"
+      },
+      {
+        "ac_no": 78,
+        "ac_name": "GURU HAR SAHAI",
+        "district": "Ferozepur"
+      },
+      {
+        "ac_no": 79,
+        "ac_name": "JALALABAD",
+        "district": "Fazilka"
+      },
+      {
+        "ac_no": 82,
+        "ac_name": "BALLUANA",
+        "district": "Fazilka"
+      },
+      {
+        "ac_no": 83,
+        "ac_name": "LAMBI",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 85,
+        "ac_name": "MALOUT",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 84,
+        "ac_name": "GIDDERBAHA",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 86,
+        "ac_name": "MUKTSAR",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 87,
+        "ac_name": "FARIDKOT",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 88,
+        "ac_name": "KOTKAPURA",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 89,
+        "ac_name": "JAITU",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 90,
+        "ac_name": "RAMPURA PHUL",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 94,
+        "ac_name": "TALWANDI SABO",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 91,
+        "ac_name": "BHUCHO MANDI",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 92,
+        "ac_name": "BATHINDA URBAN",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 93,
+        "ac_name": "BATHINDA RURAL",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 95,
+        "ac_name": "MAUR",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 96,
+        "ac_name": "MANSA",
+        "district": "Mansa"
+      },
+      {
+        "ac_no": 97,
+        "ac_name": "SARDULGARH",
+        "district": "Mansa"
+      },
+      {
+        "ac_no": 98,
+        "ac_name": "BUDHLADA",
+        "district": "Mansa"
+      }
+    ],
     "region": "Malwa"
   },
   {
     "name": "Anirban Banerjee",
     "email": "anirban@showtimeconsulting.in",
-    "empId": "STC22532",
     "role": "zonal",
+    "acs": [
+      {
+        "ac_no": 52,
+        "ac_name": "KHARAR",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 53,
+        "ac_name": "SAS NAGAR",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 112,
+        "ac_name": "DERA BASSI",
+        "district": "SAS Nagar (Mohali)"
+      },
+      {
+        "ac_no": 54,
+        "ac_name": "BASSI PATHANA",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 55,
+        "ac_name": "FATEHGARH SAHIB, Sirhind",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 56,
+        "ac_name": "AMLOH",
+        "district": "Fatehgarh Sahib"
+      },
+      {
+        "ac_no": 57,
+        "ac_name": "KHANNA",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 58,
+        "ac_name": "SAMRALA",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 59,
+        "ac_name": "SAHNEWAL",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 66,
+        "ac_name": "GILL",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 70,
+        "ac_name": "JAGRAON",
+        "district": "Ludhiana"
+      },
+      {
+        "ac_no": 99,
+        "ac_name": "LEHRA",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 100,
+        "ac_name": "DIRBA",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 108,
+        "ac_name": "SANGRUR",
+        "district": "Sangrur"
+      },
+      {
+        "ac_no": 102,
+        "ac_name": "BHADAUR",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 103,
+        "ac_name": "BARNALA",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 104,
+        "ac_name": "MEHAL KALAN",
+        "district": "Barnala"
+      },
+      {
+        "ac_no": 105,
+        "ac_name": "MALERKOTLA",
+        "district": "Malerkotla"
+      },
+      {
+        "ac_no": 106,
+        "ac_name": "AMARGARH",
+        "district": "Malerkotla"
+      },
+      {
+        "ac_no": 109,
+        "ac_name": "NABHA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 113,
+        "ac_name": "GHANAUR",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 110,
+        "ac_name": "PATIALA RURAL",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 114,
+        "ac_name": "SANOUR",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 116,
+        "ac_name": "SAMANA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 117,
+        "ac_name": "SHUTRANA",
+        "district": "Patiala"
+      },
+      {
+        "ac_no": 71,
+        "ac_name": "Nihal Singhwala",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 73,
+        "ac_name": "MOGA",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 72,
+        "ac_name": "BHAGHA PURANA",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 74,
+        "ac_name": "DHARAMKOT",
+        "district": "Moga"
+      },
+      {
+        "ac_no": 77,
+        "ac_name": "FIROZPUR RURAL",
+        "district": "Ferozepur"
+      },
+      {
+        "ac_no": 78,
+        "ac_name": "GURU HAR SAHAI",
+        "district": "Ferozepur"
+      },
+      {
+        "ac_no": 79,
+        "ac_name": "JALALABAD",
+        "district": "Fazilka"
+      },
+      {
+        "ac_no": 82,
+        "ac_name": "BALLUANA",
+        "district": "Fazilka"
+      },
+      {
+        "ac_no": 83,
+        "ac_name": "LAMBI",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 85,
+        "ac_name": "MALOUT",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 84,
+        "ac_name": "GIDDERBAHA",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 86,
+        "ac_name": "MUKTSAR",
+        "district": "Sri Muktsar Sahib"
+      },
+      {
+        "ac_no": 87,
+        "ac_name": "FARIDKOT",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 88,
+        "ac_name": "KOTKAPURA",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 89,
+        "ac_name": "JAITU",
+        "district": "Faridkot"
+      },
+      {
+        "ac_no": 90,
+        "ac_name": "RAMPURA PHUL",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 94,
+        "ac_name": "TALWANDI SABO",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 91,
+        "ac_name": "BHUCHO MANDI",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 92,
+        "ac_name": "BATHINDA URBAN",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 93,
+        "ac_name": "BATHINDA RURAL",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 95,
+        "ac_name": "MAUR",
+        "district": "Bathinda"
+      },
+      {
+        "ac_no": 96,
+        "ac_name": "MANSA",
+        "district": "Mansa"
+      },
+      {
+        "ac_no": 97,
+        "ac_name": "SARDULGARH",
+        "district": "Mansa"
+      },
+      {
+        "ac_no": 98,
+        "ac_name": "BUDHLADA",
+        "district": "Mansa"
+      }
+    ],
     "region": "Malwa"
   }
 ]
