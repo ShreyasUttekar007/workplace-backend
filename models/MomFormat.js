@@ -8,6 +8,7 @@ const StakeholderSchema = new Schema(
     name: { type: String, trim: true },
     designation: { type: String, trim: true },
     phone: { type: String, trim: true }, // stored as +91-XXXXXXXXXX
+    party: { type: String, trim: true }, // Punjab only (AAP, SDA, INC, ...)
   },
   { _id: false }
 );
@@ -62,6 +63,7 @@ const MomFormatSchema = new Schema(
     // Respondent (primary stakeholder) — surfaced on the dashboard
     respondentName: { type: String, trim: true },
     respondentDesignation: { type: String, trim: true },
+    respondentParty: { type: String, trim: true }, // Punjab only
     respondentPhoto: { type: String, trim: true },
 
     stakeholders: { type: [StakeholderSchema], default: [] },

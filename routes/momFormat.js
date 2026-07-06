@@ -163,7 +163,7 @@ router.get("/all-meetings", async (req, res) => {
     // MomFormat (small collection) — always load all (optionally ranged).
     const fmt = await MomFormat.find(
       { ...(range || {}), ...stateScope },
-      "createdByName createdAt location respondentName respondentDesignation meetingDate meetingTime gMapLocation reviewStatus zone pc region district"
+      "createdByName createdAt location respondentName respondentDesignation respondentParty meetingDate meetingTime gMapLocation reviewStatus zone pc region district"
     )
       .sort({ createdAt: -1 })
       .lean();
@@ -177,6 +177,7 @@ router.get("/all-meetings", async (req, res) => {
       respondentName: r.respondentName || "",
       respondentPhoto: "",
       respondentDesignation: r.respondentDesignation || "",
+      respondentParty: r.respondentParty || "",
       meetingDate: r.meetingDate || "",
       meetingTime: r.meetingTime || "",
       gMapLocation: r.gMapLocation || "",
