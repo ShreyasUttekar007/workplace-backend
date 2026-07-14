@@ -1,9 +1,27 @@
 const express = require("express");
 const router = express.Router();
 const authenticateUser = require("../middleware/authenticateUser");
+const multer = require("multer");
 require("dotenv").config();
 
 router.use(authenticateUser);
+
+// Audio upload for speech-to-text (in-memory; free tier caps files at 25 MB).
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+});
+
+// Map the UI's BCP-47 codes to Whisper's 2-letter language hints.
+const WHISPER_LANG = {
+  "en-IN": "en",
+  "hi-IN": "hi",
+  "te-IN": "te",
+  "pa-IN": "pa",
+  "mr-IN": "mr",
+  "bn-IN": "bn",
+  "ta-IN": "ta",
+};
 
 const firstWords = (t, n) =>
   (t || "").trim().split(/\s+/).slice(0, n).join(" ");
@@ -126,6 +144,60 @@ router.post("/clean-text", async (req, res) => {
       return res.json({ point: firstWords(raw, 12), details: raw, ai: false });
     }
     return res.json({ text: raw, ai: false });
+  }
+});
+
+/**
+ * POST /api/ai/transcribe   (multipart/form-data)
+ * fields: audio (file), lang? (BCP-47 hint, e.g. "pa-IN")
+ * returns: { text }
+ *
+ * Uses Groq Whisper Large v3 (free tier). Language is passed as a hint only;
+ * Whisper still auto-handles code-mixed speech. Falls back with a clear error
+ * if the key is missing or Groq rejects the audio.
+ */
+router.post("/transcribe", audioUpload.single("audio"), async (req, res) => {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: "Speech-to-text is not configured." });
+  }
+  if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+    return res.status(400).json({ error: "No audio provided." });
+  }
+
+  const model = process.env.GROQ_STT_MODEL || "whisper-large-v3";
+  const rawLang = (req.body && req.body.lang) || "";
+  const lang = WHISPER_LANG[rawLang] || (rawLang ? rawLang.slice(0, 2) : "");
+
+  try {
+    const fd = new FormData();
+    fd.append(
+      "file",
+      new Blob([req.file.buffer], { type: req.file.mimetype || "audio/webm" }),
+      req.file.originalname || "audio.webm"
+    );
+    fd.append("model", model);
+    fd.append("response_format", "json");
+    fd.append("temperature", "0");
+    if (lang) fd.append("language", lang);
+
+    const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: fd,
+    });
+
+    if (!r.ok) {
+      const errText = await r.text();
+      console.error("transcribe error:", r.status, errText);
+      return res.status(502).json({ error: "Transcription failed." });
+    }
+
+    const data = await r.json();
+    return res.json({ text: data && data.text ? String(data.text).trim() : "" });
+  } catch (e) {
+    console.error("transcribe exception:", e.message);
+    return res.status(500).json({ error: "Transcription error." });
   }
 });
 
