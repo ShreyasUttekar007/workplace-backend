@@ -70,6 +70,7 @@ const RECIPIENTS = [
   "pardhasaradhi@showtimeconsulting.in",
   "alimpan@showtimeconsulting.in",
   "aditya.pandit@showtimeconsulting.in",
+  "rs@showtimeconsulting.in"
 ];
 const FROM = "stc.portal@showtimeconsulting.in";
 
