@@ -70,6 +70,26 @@ router.get("/employees/soul-field", async (req, res) => {
   }
 });
 
+// All employees (used by the Cab "Add-On Persons" picker so any colleague can
+// be added, not just the Soul Field team). Name-sorted; rows without a name or
+// email are dropped so the dropdown stays clean.
+router.get("/employees/all", async (req, res) => {
+  try {
+    const employees = await EmployeeLeave.find(
+      {},
+      { employeeEmail: 1, employeeName: 1, employeePhoneNumber: 1, _id: 0 }
+    ).sort({ employeeName: 1 });
+
+    const cleaned = employees.filter(
+      (e) => e.employeeName && e.employeeEmail
+    );
+
+    res.status(200).json(cleaned);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/cab-requests", authenticateUser, async (req, res) => {
   try {
     const userId = req.user?._id || req.user?.userId;
