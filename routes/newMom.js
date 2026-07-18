@@ -9,6 +9,7 @@ const {
   assemblyConstituencies,
   parliamentaryConstituencyRoles,
 } = require("../models/roles");
+const { apScope, apOrFilter } = require("../utils/apScope");
 const authenticateUser = require("../middleware/authenticateUser");
 const EmployeeLeave = require("../models/EmployeeData");
 
@@ -227,15 +228,28 @@ router.get("/get-mom", async (req, res) => {
     }
 
     // Role-based filtering logic
-    const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
-    const userDistrictRoles = userRoles.filter((role) => districtRoles.includes(role));
-    const userConstituencyRoles = userRoles.filter((role) => assemblyConstituencies.includes(role));
-    const userParliamentaryConstituencyRoles = userRoles.filter((role) => parliamentaryConstituencyRoles.includes(role));
+    if (userLocation === "Andhra Pradesh") {
+      // AP: Zonal -> zone, PCM -> pc/ac, State Lead -> zones, admin/mod/state
+      // -> all AP, unmapped -> own only. (Legacy MoM AC field = constituency.)
+      const sc = apScope(userRoles);
+      if (sc.mode === "geo") {
+        const f = apOrFilter(sc, { zone: "zone", pc: "pc", ac: "constituency", district: "district" });
+        if (f) Object.assign(query, f);
+      } else if (sc.mode === "own") {
+        query.userId = userId;
+      }
+      // mode "all" -> no extra restriction beyond state.
+    } else {
+      const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
+      const userDistrictRoles = userRoles.filter((role) => districtRoles.includes(role));
+      const userConstituencyRoles = userRoles.filter((role) => assemblyConstituencies.includes(role));
+      const userParliamentaryConstituencyRoles = userRoles.filter((role) => parliamentaryConstituencyRoles.includes(role));
 
-    if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
-    if (userDistrictRoles.length > 0) query.district = { $in: userDistrictRoles };
-    if (userConstituencyRoles.length > 0) query.constituency = { $in: userConstituencyRoles };
-    if (userParliamentaryConstituencyRoles.length > 0) query.pc = { $in: userParliamentaryConstituencyRoles };
+      if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
+      if (userDistrictRoles.length > 0) query.district = { $in: userDistrictRoles };
+      if (userConstituencyRoles.length > 0) query.constituency = { $in: userConstituencyRoles };
+      if (userParliamentaryConstituencyRoles.length > 0) query.pc = { $in: userParliamentaryConstituencyRoles };
+    }
 
     // Date filtering
     if (fromDate && toDate) {
@@ -247,8 +261,13 @@ router.get("/get-mom", async (req, res) => {
       query.constituency = constituency;
     }
 
-    // Only allow non-admins to see their own data unless they have relevant roles
-    if (!userRoles.includes("admin") && Object.keys(query).length === 1) {
+    // Only allow non-admins to see their own data unless they have relevant roles.
+    // AP is handled entirely in its own branch above, so skip it here.
+    if (
+      userLocation !== "Andhra Pradesh" &&
+      !userRoles.includes("admin") &&
+      Object.keys(query).length === 1
+    ) {
       // Only state filter exists, so restrict to current user
       query.userId = userId;
     }

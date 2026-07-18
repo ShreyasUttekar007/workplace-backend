@@ -6,6 +6,7 @@ const BoothsAp = require("../models/BoothListAP");
 const User = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
 const punjabGeo = require("../utils/punjabGeo");
+const { apScope, apOrFilter } = require("../utils/apScope");
 const multer = require("multer");
 const AWS = require("aws-sdk");
 
@@ -23,11 +24,29 @@ router.use(authenticateUser);
 //  - Punjab user with no mapping: only their own records.
 function punjabAwareStateScope(req) {
   const userState = (req.user && req.user.location) || "";
-  if (userState !== "Punjab") return { state: { $ne: "Punjab" } };
-  const sc = punjabGeo.punjabScope((req.user && req.user.roles) || []);
-  if (sc.mode === "all") return { state: "Punjab" };
-  if (sc.mode === "geo") return { state: "Punjab", ...sc.filter };
-  return { state: "Punjab", createdByEmail: (req.user && req.user.email) || "__none__" };
+  const roles = (req.user && req.user.roles) || [];
+  const email = (req.user && req.user.email) || "__none__";
+
+  if (userState === "Punjab") {
+    const sc = punjabGeo.punjabScope(roles);
+    if (sc.mode === "all") return { state: "Punjab" };
+    if (sc.mode === "geo") return { state: "Punjab", ...sc.filter };
+    return { state: "Punjab", createdByEmail: email };
+  }
+
+  // Andhra Pradesh: Zonal -> zone, PCM -> pc/ac, State Lead -> zones,
+  // admin/mod/state -> all AP, unmapped -> own only. (MoM AC field = location.)
+  if (userState === "Andhra Pradesh") {
+    const sc = apScope(roles);
+    if (sc.mode === "all") return { state: "Andhra Pradesh" };
+    if (sc.mode === "geo") {
+      const f = apOrFilter(sc, { zone: "zone", pc: "pc", ac: "location", district: "district" });
+      return { state: "Andhra Pradesh", ...(f || {}) };
+    }
+    return { state: "Andhra Pradesh", createdByEmail: email };
+  }
+
+  return { state: { $ne: "Punjab" } };
 }
 
 // ---- Respondent photo upload (server-side S3; keys stay on the server) ----

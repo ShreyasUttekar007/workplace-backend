@@ -4,6 +4,7 @@ const Report = require("../models/AcReport");
 const { roles } = require("../models/User");
 const User = require("../models/User");
 const { zoneRoles, districtRoles, assemblyConstituencies, parliamentaryConstituencyRoles } = require('../models/roles');
+const { apScope, apOrFilter } = require('../utils/apScope');
 const authenticateUser = require("../middleware/authenticateUser");
 
 router.use(authenticateUser);
@@ -118,24 +119,37 @@ router.get("/get-report/:userId", async (req, res) => {
     }
 
     // Filter roles for each category
-    const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
-    const userDistrictRoles = userRoles.filter((role) =>
-      districtRoles.includes(role)
-    );
-    const userConstituencyRoles = userRoles.filter((role) =>
-      assemblyConstituencies.includes(role)
-    );
-    const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
-      parliamentaryConstituencyRoles.includes(role)
-    );
+    if (userLocation === "Andhra Pradesh") {
+      // AP: Zonal -> zone, PCM -> pc/ac, State Lead -> zones, admin/mod/state
+      // -> all AP, unmapped -> own only. (AcReport AC field = constituency.)
+      const sc = apScope(userRoles);
+      if (sc.mode === "geo") {
+        const f = apOrFilter(sc, { zone: "zone", pc: "pc", ac: "constituency", district: "district" });
+        if (f) Object.assign(query, f);
+      } else if (sc.mode === "own") {
+        query.userId = userId;
+      }
+      // mode "all" -> no extra restriction beyond state.
+    } else {
+      const userZoneRoles = userRoles.filter((role) => zoneRoles.includes(role));
+      const userDistrictRoles = userRoles.filter((role) =>
+        districtRoles.includes(role)
+      );
+      const userConstituencyRoles = userRoles.filter((role) =>
+        assemblyConstituencies.includes(role)
+      );
+      const userParliamentaryConstituencyRoles = userRoles.filter((role) =>
+        parliamentaryConstituencyRoles.includes(role)
+      );
 
-    if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
-    if (userDistrictRoles.length > 0)
-      query.district = { $in: userDistrictRoles };
-    if (userConstituencyRoles.length > 0)
-      query.constituency = { $in: userConstituencyRoles };
-    if (userParliamentaryConstituencyRoles.length > 0) {
-      query.pc = { $in: userParliamentaryConstituencyRoles };
+      if (userZoneRoles.length > 0) query.zone = { $in: userZoneRoles };
+      if (userDistrictRoles.length > 0)
+        query.district = { $in: userDistrictRoles };
+      if (userConstituencyRoles.length > 0)
+        query.constituency = { $in: userConstituencyRoles };
+      if (userParliamentaryConstituencyRoles.length > 0) {
+        query.pc = { $in: userParliamentaryConstituencyRoles };
+      }
     }
 
     // Admins should see all reports in their state, not just their userId
@@ -143,7 +157,11 @@ router.get("/get-report/:userId", async (req, res) => {
       return res.status(403).json({ error: "Forbidden - Unauthorized user" });
     }
 
-    if (!userRoles.includes("admin") && Object.keys(query).length === 1) {
+    if (
+      userLocation !== "Andhra Pradesh" &&
+      !userRoles.includes("admin") &&
+      Object.keys(query).length === 1
+    ) {
       // Only state exists
       query.userId = userId;
     }

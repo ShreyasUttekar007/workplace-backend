@@ -1572,6 +1572,8 @@ const regionRolesPunjab = ["Doaba", "Majha", "Malwa"];
 const districtRolesPunjab = ["Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib", "Fazilka", "Ferozepur", "Gurdaspur", "Hoshiarpur", "Jalandhar", "Ludhiana", "Malerkotla", "Mansa", "Moga", "Patiala", "SAS Nagar (Mohali)", "SBS Nagar", "Sangrur", "Sri Muktsar Sahib", "Tarn Taran"];
 const assemblyConstituenciesPunjab = ["AJNALA", "AMARGARH", "AMLOH", "ATTARI", "BABA BAKALA", "BALACHAUR", "BALLUANA", "BANGA", "BARNALA", "BASSI PATHANA", "BATHINDA RURAL", "BATHINDA URBAN", "BHADAUR", "BHAGHA PURANA", "BHUCHO MANDI", "BUDHLADA", "DERA BABA NANAK", "DERA BASSI", "DHARAMKOT", "DIRBA", "FARIDKOT", "FATEHGARH CHURIAN", "FATEHGARH SAHIB, Sirhind", "FIROZPUR RURAL", "GARHSHANKAR", "GHANAUR", "GIDDERBAHA", "GILL", "GURDASPUR", "GURU HAR SAHAI", "JAGRAON", "JAITU", "JALALABAD", "JANDIALA", "KARTARPUR", "KHADOOR SAHIB", "KHANNA", "KHARAR", "KHEM KARAN", "KOTKAPURA", "LAMBI", "LEHRA", "MAJITHA", "MALERKOTLA", "MALOUT", "MANSA", "MAUR", "MEHAL KALAN", "MOGA", "MUKTSAR", "NABHA", "NAKODAR", "NAWAN SHAHR", "Nihal Singhwala", "PATIALA RURAL", "PATTI", "Phillaur", "QADIAN", "RAJA SANSI", "RAMPURA PHUL", "SAHNEWAL", "SAMANA", "SAMRALA", "SANGRUR", "SANOUR", "SARDULGARH", "SAS NAGAR", "SHAHKOT", "SHUTRANA", "SRI HARGOBINDPUR", "TALWANDI SABO", "TARN TARAN"];
 const punjabRoleTypes = ["PCM", "Zonal"];
+// AP role-type markers (admin/mod/state/user already exist in the base enum).
+const apRoleTypes = ["Zonal", "State Lead", "PCM"];
 
 module.exports = {
   zoneRoles,
@@ -1594,4 +1596,5 @@ module.exports = {
   districtRolesPunjab,
   assemblyConstituenciesPunjab,
   punjabRoleTypes,
+  apRoleTypes,
 };
