@@ -19,6 +19,27 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+// ---- Cab request window ----
+// Requests close at 6:00 PM IST. The server is the single source of truth here,
+// so a wrong or tampered client clock cannot get around it.
+const CAB_CUTOFF_HOUR = Number(process.env.CAB_CUTOFF_HOUR || 18); // 18 = 6 PM
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+function istNow() {
+  return new Date(Date.now() + IST_OFFSET_MS);
+}
+
+// true once the IST clock passes the cutoff hour
+function isCabWindowClosed() {
+  return istNow().getUTCHours() >= CAB_CUTOFF_HOUR;
+}
+
+function cutoffLabel() {
+  const h = CAB_CUTOFF_HOUR % 12 || 12;
+  const ampm = CAB_CUTOFF_HOUR >= 12 ? "PM" : "AM";
+  return `${h}:00 ${ampm}`;
+}
+
 router.post("/cab-record", async (req, res) => {
   try {
     const cabData = req.body;
@@ -26,6 +47,14 @@ router.post("/cab-record", async (req, res) => {
     // Validate user authorization
     if (!req.user || !req.user._id) {
       return res.status(403).json({ error: "Unauthorized user" });
+    }
+
+    // Submissions close at the daily cutoff (6 PM IST).
+    if (isCabWindowClosed()) {
+      return res.status(403).json({
+        error: `Cab requests are closed for today. Requests can only be raised before ${cutoffLabel()}.`,
+        windowClosed: true,
+      });
     }
 
     // Ensure userId matches the logged-in user's ID
@@ -488,12 +517,62 @@ router.delete("/delete-cab-request/:momId", async (req, res) => {
 });
 
 // ---- Cab request stats for the welcome dashboard ----
+// Lets the form ask the SERVER whether requests are still open, instead of
+// trusting the browser clock.
+router.get("/cab-window", authenticateUser, (req, res) => {
+  const ist = istNow();
+  res.status(200).json({
+    open: !isCabWindowClosed(),
+    cutoffHour: CAB_CUTOFF_HOUR,
+    cutoffLabel: cutoffLabel(),
+    serverTimeIST: `${String(ist.getUTCHours()).padStart(2, "0")}:${String(
+      ist.getUTCMinutes()
+    ).padStart(2, "0")}`,
+  });
+});
+
 router.get("/stats", authenticateUser, async (req, res) => {
   try {
-    const pending = await CabRecord.countDocuments({ cabStatus: "pending" });
-    const approved = await CabRecord.countDocuments({ cabStatus: "approved" });
-    const total = await CabRecord.countDocuments();
-    res.status(200).json({ pending, approved, total });
+    // One pass, grouped by state + status, so the KPI cards can be split by
+    // state without firing a query per combination.
+    const rows = await CabRecord.aggregate([
+      {
+        $group: {
+          _id: { state: "$state", status: "$cabStatus" },
+          n: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const blank = () => ({ pending: 0, approved: 0, total: 0 });
+    const byState = {
+      "Andhra Pradesh": blank(),
+      Punjab: blank(),
+      Unspecified: blank(),
+    };
+    let pending = 0;
+    let approved = 0;
+    let total = 0;
+
+    rows.forEach((r) => {
+      const rawState = (r._id && r._id.state) || "";
+      const key = byState[rawState] ? rawState : "Unspecified";
+      const status = ((r._id && r._id.status) || "").toLowerCase();
+      const n = r.n || 0;
+
+      byState[key].total += n;
+      total += n;
+      if (status === "pending") {
+        byState[key].pending += n;
+        pending += n;
+      } else if (status === "approved") {
+        byState[key].approved += n;
+        approved += n;
+      }
+    });
+
+    // pending/approved/total kept for backward compatibility.
+    res.status(200).json({ pending, approved, total, byState });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
