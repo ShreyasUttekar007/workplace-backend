@@ -313,9 +313,44 @@ router.get("/stats", async (req, res) => {
     } catch (e) {
       /* legacy optional */
     }
+    // Per-state totals, combining the new format and the legacy collection.
+    const blank = () => ({ total: 0, thisMonth: 0 });
+    const byState = {
+      "Andhra Pradesh": blank(),
+      Punjab: blank(),
+      Unspecified: blank(),
+    };
+    const bucket = (raw) => (byState[raw] ? raw : "Unspecified");
+
+    const addRows = (rows, key) => {
+      rows.forEach((r) => {
+        const b = bucket((r._id && r._id.state) || "");
+        byState[b][key] += r.n || 0;
+      });
+    };
+
+    const groupBy = (Model, match) =>
+      Model.aggregate([
+        ...(match ? [{ $match: match }] : []),
+        { $group: { _id: { state: "$state" }, n: { $sum: 1 } } },
+      ]);
+
+    try {
+      addRows(await groupBy(MomFormat), "total");
+      addRows(await groupBy(MomFormat, { createdAt: { $gte: startOfMonth } }), "thisMonth");
+      addRows(await groupBy(NewMom, { makeMom: "Yes" }), "total");
+      addRows(
+        await groupBy(NewMom, { makeMom: "Yes", createdAt: { $gte: startOfMonth } }),
+        "thisMonth"
+      );
+    } catch (e) {
+      /* per-state split is best-effort; totals below are still correct */
+    }
+
     res.status(200).json({
       totalMoms: fmtTotal + legacyTotal,
       momsThisMonth: fmtMonth + legacyMonth,
+      byState,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
