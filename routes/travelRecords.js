@@ -24,12 +24,85 @@ router.post("/travel-record", async (req, res) => {
       return res.status(403).json({ error: "Forbidden - Unauthorized user" });
     }
 
+    const formatDate = (dateString) =>
+      dateString ? new Date(dateString).toLocaleDateString("en-GB") : "NA";
+
+    // Normalise multi-leg input. Older clients may still send single fields;
+    // wrap those into a one-element array so everything downstream is uniform.
+    const legs =
+      Array.isArray(travelData.travelLegs) && travelData.travelLegs.length
+        ? travelData.travelLegs
+        : travelData.travelDate || travelData.fromLocation || travelData.toLocation
+        ? [
+            {
+              travelDate: travelData.travelDate,
+              fromLocation: travelData.fromLocation,
+              toLocation: travelData.toLocation,
+            },
+          ]
+        : [];
+    const stays =
+      Array.isArray(travelData.accommodations) && travelData.accommodations.length
+        ? travelData.accommodations
+        : travelData.accommodationStartDate || travelData.accommodationEndDate
+        ? [
+            {
+              startDate: travelData.accommodationStartDate,
+              endDate: travelData.accommodationEndDate,
+              location: "",
+            },
+          ]
+        : [];
+
+    travelData.travelLegs = legs;
+    travelData.accommodations = stays;
+    // Keep legacy single fields in sync with the first leg/stay so old readers
+    // (tables, reports) still show something sensible.
+    if (legs[0]) {
+      travelData.travelDate = legs[0].travelDate;
+      travelData.fromLocation = legs[0].fromLocation;
+      travelData.toLocation = legs[0].toLocation;
+    }
+    if (stays[0]) {
+      travelData.accommodationStartDate = stays[0].startDate;
+      travelData.accommodationEndDate = stays[0].endDate;
+    }
+
     // Create new travel request
     const newTravelRequest = await TravelRecord.create(travelData);
 
-    // Email notification setup
-    const formatDate = (dateString) =>
-      dateString ? new Date(dateString).toLocaleDateString("en-GB") : "NA";
+    const legsText = legs.length
+      ? legs
+          .map(
+            (l, i) =>
+              `  ${i + 1}. ${l.fromLocation || "?"} -> ${l.toLocation || "?"} (${formatDate(l.travelDate)})`
+          )
+          .join("\n")
+      : "  NA";
+    const legsHtml = legs.length
+      ? legs
+          .map(
+            (l, i) =>
+              `<li>${i + 1}. <strong>${l.fromLocation || "?"} &rarr; ${l.toLocation || "?"}</strong> — ${formatDate(l.travelDate)}</li>`
+          )
+          .join("")
+      : "<li>NA</li>";
+    const staysText = stays.length
+      ? stays
+          .map(
+            (a, i) =>
+              `  ${i + 1}. ${formatDate(a.startDate)} to ${formatDate(a.endDate)}${a.location ? " @ " + a.location : ""}`
+          )
+          .join("\n")
+      : "  NA";
+    const staysHtml = stays.length
+      ? stays
+          .map(
+            (a, i) =>
+              `<li>${i + 1}. ${formatDate(a.startDate)} to ${formatDate(a.endDate)}${a.location ? " @ <strong>" + a.location + "</strong>" : ""}</li>`
+          )
+          .join("")
+      : "<li>NA</li>";
 
     const msg = {
       to: [
@@ -43,17 +116,15 @@ router.post("/travel-record", async (req, res) => {
 
 I hope this message finds you well. I am requesting travel/accommodation arrangements for an upcoming event.
 
-- **Travel Date:** ${formatDate(travelData.travelDate)}
-- **From:** ${travelData.fromLocation} 
-- **To:** ${travelData.toLocation} 
+- **Travel Itinerary:**
+${legsText}
 - **Name:** ${newTravelRequest.name} 
 - **Contact Number:** ${newTravelRequest.employeePhoneNumber} 
 - **Age:** ${travelData.age} 
 - **Event Location:** ${travelData.eventLocation} 
 - **Purpose of Travel:** ${travelData.purposeOfTravel}
-- **Accommodation:** ${formatDate(
-        travelData.accommodationStartDate
-      )} to ${formatDate(travelData.accommodationEndDate)}
+- **Accommodation:**
+${staysText}
 - **Remarks:** ${travelData.remarks || "N/A"}
 
 Thank you for processing this request.
@@ -64,11 +135,7 @@ ${travelData.name}`,
       <p>Dear Admin Team,</p>
       <p>I hope this message finds you well. I am requesting travel/accommodation arrangements for an upcoming event.</p>
       <ul>
-        <li><strong>Travel Date:</strong> ${formatDate(
-          travelData.travelDate
-        )}</li>
-        <li><strong>From:</strong> ${travelData.fromLocation}</li>
-        <li><strong>To:</strong> ${travelData.toLocation}</li>
+        <li><strong>Travel Itinerary:</strong><ul>${legsHtml}</ul></li>
         <li><strong>Name:</strong> ${newTravelRequest.name}</li>
         <li><strong>Contact Number:</strong> ${newTravelRequest.employeePhoneNumber}</li>
         <li><strong>Age:</strong> ${travelData.age}</li>
@@ -76,9 +143,7 @@ ${travelData.name}`,
         <li><strong>Purpose of Travel:</strong> ${
           travelData.purposeOfTravel
         }</li>
-        <li><strong>Accommodation:</strong> ${formatDate(
-          travelData.accommodationStartDate
-        )} to ${formatDate(travelData.accommodationEndDate)}</li>
+        <li><strong>Accommodation:</strong><ul>${staysHtml}</ul></li>
         <li><strong>Remarks:</strong> ${travelData.remarks || "N/A"}</li>
       </ul>
       <p>Thank you for processing this request.</p>

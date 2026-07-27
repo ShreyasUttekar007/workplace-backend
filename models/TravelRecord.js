@@ -2,6 +2,26 @@ const mongoose = require("mongoose");
 const EmployeeLeave = require("./EmployeeData");
 const { Schema } = mongoose;
 
+// One travel leg (e.g. Hyd -> Adoni). A request can hold several.
+const TravelLegSchema = new Schema(
+  {
+    travelDate: { type: Date },
+    fromLocation: { type: String, trim: true },
+    toLocation: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
+// One accommodation stay. A request can hold several.
+const AccommodationSchema = new Schema(
+  {
+    startDate: { type: Date },
+    endDate: { type: Date },
+    location: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const TravelRequestSchema = new Schema(
   {
     userId: {
@@ -20,6 +40,10 @@ const TravelRequestSchema = new Schema(
     toLocation: { type: String, trim: true },
     accommodationStartDate: { type: Date, trim: true },
     accommodationEndDate: { type: Date, trim: true },
+    // Multi-destination support. Legacy single fields above are still populated
+    // from the first leg/stay so old readers keep working.
+    travelLegs: { type: [TravelLegSchema], default: [] },
+    accommodations: { type: [AccommodationSchema], default: [] },
     purposeOfTravel: { type: String, trim: true },
     eventDetails: { type: String, trim: true },
     eventLocation: { type: String, trim: true },
