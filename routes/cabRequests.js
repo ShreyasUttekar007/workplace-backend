@@ -266,6 +266,28 @@ router.get("/get-cab-by-id/:momId", async (req, res) => {
 router.put("/update-user-cab-data/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
+
+    // After the daily cutoff (6 PM IST) employees can no longer edit their own
+    // raised requests. Admins / super-approvers stay exempt so they can still
+    // correct or action a request.
+    const userRoles = req.user?.roles || [];
+    const userEmail = (req.user?.email || "").trim().toLowerCase();
+    const CAB_SUPER_APPROVERS = [
+      "nikash.kumar@showtimeconsulting.in",
+      "admin@showtimeconsulting.in",
+    ];
+    const isPrivileged =
+      userRoles.includes("admin") ||
+      userRoles.includes("mod") ||
+      CAB_SUPER_APPROVERS.includes(userEmail);
+
+    if (!isPrivileged && isCabWindowClosed()) {
+      return res.status(403).json({
+        error: `Cab requests are closed for today. You can no longer edit a request after ${cutoffLabel()}.`,
+        windowClosed: true,
+      });
+    }
+
     const updatedMom = await CabRecord.findByIdAndUpdate(momId, req.body, {
       new: true,
     });
