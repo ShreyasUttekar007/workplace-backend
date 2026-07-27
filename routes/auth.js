@@ -148,8 +148,9 @@ router.get("/users", authenticateUser, async (req, res, next) => {
   try {
     // A Punjab-only manager (e.g. Shalini) sees just Punjab users. Admins and
     // any other authenticated caller are unchanged.
-    const filter =
-      !isAdminUser(req) && isPunjabManager(req) ? { location: "Punjab" } : {};
+    // Being in the Punjab-managers list restricts you regardless of your role
+    // (even if the account was given a mod/hr role to surface the tile).
+    const filter = isPunjabManager(req) ? { location: "Punjab" } : {};
     const users = await User.find(filter, { password: 0 });
     res.status(200).json(users);
   } catch (error) {
@@ -172,7 +173,7 @@ router.get("/users/:id", authenticateUser, async (req, res, next) => {
     }
 
     // A Punjab-only manager may only open Punjab users.
-    if (!isAdminUser(req) && isPunjabManager(req) && user.location !== "Punjab") {
+    if (isPunjabManager(req) && user.location !== "Punjab") {
       return res
         .status(403)
         .json({ message: "You can only manage Punjab users." });
@@ -239,7 +240,7 @@ router.put("/update-user/:userId", authenticateUser, async (req, res, next) => {
 
     // A Punjab-only manager may edit ONLY Punjab users, and may not move a user
     // to another state. Admins are unaffected.
-    const punjabManagerScoped = !isAdminUser(req) && isPunjabManager(req);
+    const punjabManagerScoped = isPunjabManager(req);
     if (punjabManagerScoped && user.location !== "Punjab") {
       return res
         .status(403)
@@ -273,8 +274,8 @@ router.put("/update-user/:userId", authenticateUser, async (req, res, next) => {
 
 router.delete("/users/:id", authenticateUser, async (req, res, next) => {
   try {
-    // Deleting users stays admin-only.
-    if (!isAdminUser(req)) {
+    // Deleting users stays admin-only, and a Punjab manager may never delete.
+    if (isPunjabManager(req) || !isAdminUser(req)) {
       return res
         .status(403)
         .json({ message: "Not authorized to delete users." });
