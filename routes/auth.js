@@ -8,6 +8,17 @@ const crypto = require("crypto");
 const sgMail = require("@sendgrid/mail");
 const PasswordReset = require("../models/PasswordReset");
 require("dotenv").config();
+const authenticateUser = require("../middleware/authenticateUser");
+
+// Users allowed to manage ONLY Punjab-mapped users (view + map). Add emails here
+// to grant the same scoped access to more people.
+const PUNJAB_USER_MANAGERS = ["sonkar.shalini@showtimeconsulting.in"];
+const isPunjabManager = (req) =>
+  PUNJAB_USER_MANAGERS.includes((req.user?.email || "").toLowerCase());
+const isAdminUser = (req) => {
+  const roles = req.user?.roles || [];
+  return roles.includes("admin") || roles.includes("mod");
+};
 
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -133,16 +144,20 @@ router.post("/login", async (req, res, next) => {
   }
 });
 
-router.get("/users", async (req, res, next) => {
+router.get("/users", authenticateUser, async (req, res, next) => {
   try {
-    const users = await User.find({}, { password: 0 });
+    // A Punjab-only manager (e.g. Shalini) sees just Punjab users. Admins and
+    // any other authenticated caller are unchanged.
+    const filter =
+      !isAdminUser(req) && isPunjabManager(req) ? { location: "Punjab" } : {};
+    const users = await User.find(filter, { password: 0 });
     res.status(200).json(users);
   } catch (error) {
     next(error);
   }
 });
 
-router.get("/users/:id", async (req, res, next) => {
+router.get("/users/:id", authenticateUser, async (req, res, next) => {
   try {
     const userId = req.params.id;
 
@@ -154,6 +169,13 @@ router.get("/users/:id", async (req, res, next) => {
     const user = await User.findById(userId, { password: 0 });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // A Punjab-only manager may only open Punjab users.
+    if (!isAdminUser(req) && isPunjabManager(req) && user.location !== "Punjab") {
+      return res
+        .status(403)
+        .json({ message: "You can only manage Punjab users." });
     }
 
     res.status(200).json(user);
@@ -194,7 +216,7 @@ router.put("/update-password", async (req, res, next) => {
   }
 });
 
-router.put("/update-user/:userId", async (req, res, next) => {
+router.put("/update-user/:userId", authenticateUser, async (req, res, next) => {
   try {
     const { userId } = req.params;
     const {
@@ -215,10 +237,21 @@ router.put("/update-user/:userId", async (req, res, next) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // A Punjab-only manager may edit ONLY Punjab users, and may not move a user
+    // to another state. Admins are unaffected.
+    const punjabManagerScoped = !isAdminUser(req) && isPunjabManager(req);
+    if (punjabManagerScoped && user.location !== "Punjab") {
+      return res
+        .status(403)
+        .json({ message: "You can only manage Punjab users." });
+    }
+
     user.email = email || user.email;
     user.userName = userName || user.userName;
     user.roles = roles || user.roles;
-    user.location = location || user.location;
+    user.location = punjabManagerScoped
+      ? "Punjab"
+      : location || user.location;
     if (reportingManagerEmail !== undefined)
       user.reportingManagerEmail = reportingManagerEmail;
     if (reportingManagerName !== undefined)
@@ -238,8 +271,14 @@ router.put("/update-user/:userId", async (req, res, next) => {
 });
 
 
-router.delete("/users/:id", async (req, res, next) => {
+router.delete("/users/:id", authenticateUser, async (req, res, next) => {
   try {
+    // Deleting users stays admin-only.
+    if (!isAdminUser(req)) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete users." });
+    }
     const userId = req.params.id;
     const deletedUser = await User.findByIdAndDelete(userId);
     if (!deletedUser) {
