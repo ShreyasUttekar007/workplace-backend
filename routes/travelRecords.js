@@ -166,16 +166,125 @@ ${travelData.name}`,
   }
 });
 
+// ---- GROUP travel: a reporting manager raises ONE request for several team
+// members over a connecting, multi-leg itinerary. Each leg carries its own
+// destination accommodation. We create one record PER member (each holding the
+// full leg list) so the status/admin tables expand to one row per member x leg.
+router.post("/group-travel-record", async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(403).json({ error: "Unauthorized user" });
+    }
+
+    const {
+      members, // [{ userId, email }]
+      requestType,
+      travelLegs,
+      purposeOfTravel,
+      eventName,
+      eventLocation,
+      eventDetails,
+      remarks,
+      travelInstructedBy,
+    } = req.body;
+
+    if (!Array.isArray(members) || members.length === 0) {
+      return res.status(400).json({ error: "Select at least one team member." });
+    }
+    const legs = Array.isArray(travelLegs) ? travelLegs.filter(Boolean) : [];
+    if (legs.length === 0) {
+      return res.status(400).json({ error: "Add at least one leg." });
+    }
+
+    const fmt = (d) => (d ? new Date(d).toLocaleString("en-GB") : "NA");
+    const requestedByEmail = (req.user.email || "").toLowerCase();
+    const requestedByName =
+      req.user.name || req.user.userName || req.user.email || "Reporting Manager";
+    const groupId = `TRG-${Date.now().toString(36).toUpperCase()}`;
+
+    const created = [];
+    const failed = [];
+    for (const m of members) {
+      if (!m || !m.email || !m.userId) {
+        failed.push({ email: m && m.email, reason: "Missing email or userId" });
+        continue;
+      }
+      try {
+        const recordData = {
+          userId: m.userId,
+          email: m.email,
+          requestType,
+          travelLegs: legs,
+          purposeOfTravel,
+          eventName,
+          eventLocation,
+          eventDetails,
+          remarks,
+          travelInstructedBy,
+          isGroupRequest: true,
+          groupId,
+          requestedByEmail,
+          requestedByName,
+        };
+        // Keep legacy single fields aligned with the first leg for old readers.
+        if (legs[0]) {
+          recordData.travelDate = legs[0].travelDate;
+          recordData.fromLocation = legs[0].fromLocation;
+          recordData.toLocation = legs[0].toLocation;
+          recordData.accommodationStartDate = legs[0].accommodationStartDate;
+          recordData.accommodationEndDate = legs[0].accommodationEndDate;
+        }
+        const rec = await TravelRecord.create(recordData);
+        created.push({ email: m.email, name: rec.name, travelCode: rec.travelCode });
+      } catch (err) {
+        failed.push({ email: m.email, reason: err.message });
+      }
+    }
+
+    try {
+      const legLines = legs
+        .map((l, i) => {
+          const travel =
+            l.fromLocation || l.toLocation
+              ? `${l.fromLocation || "?"} -> ${l.toLocation || "?"} (${fmt(l.travelDate)})`
+              : "";
+          const stay = l.accommodationPlace
+            ? `stay: ${l.accommodationPlace} ${fmt(l.accommodationStartDate)} to ${fmt(l.accommodationEndDate)}`
+            : "";
+          return `  ${i + 1}. ${[travel, stay].filter(Boolean).join(" | ")}`;
+        })
+        .join("\n");
+      const travellers = created.map((c) => `${c.name} (${c.email})`).join(", ");
+      await sgMail.send({
+        to: process.env.MAIL_FROM || "stc.portal@showtimeconsulting.in",
+        from: process.env.MAIL_FROM || "stc.portal@showtimeconsulting.in",
+        subject: `Group Travel (${created.length}) — ${requestType} — by ${requestedByName}`,
+        text: `Group travel raised by ${requestedByName}.\n\nTravellers: ${travellers}\n\nRequest Type: ${requestType}\n\nItinerary:\n${legLines}\n\nEvent: ${eventName || "NA"}\nPurpose: ${purposeOfTravel || "NA"}\nRemarks: ${remarks || "N/A"}`,
+      });
+    } catch (mailErr) {
+      console.error("Group travel email failed:", mailErr.message);
+    }
+
+    return res.status(201).json({ groupId, created, failed });
+  } catch (error) {
+    console.error("Error processing group travel request:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/travel-requests", authenticateUser, async (req, res) => {
   try {
     const userId = req.user?._id || req.user?.userId;
+    const myEmail = (req.user?.email || "").toLowerCase();
 
     if (!userId) {
       return res.status(400).json({ error: "User ID is required." });
     }
 
-    // Fetch travel requests for the specific user
-    const leaveRequests = await TravelRecord.find({ userId }).sort({
+    // Own travel + any group requests the manager raised for their team.
+    const leaveRequests = await TravelRecord.find({
+      $or: [{ userId }, { requestedByEmail: myEmail }],
+    }).sort({
       createdAt: -1,
     });
 

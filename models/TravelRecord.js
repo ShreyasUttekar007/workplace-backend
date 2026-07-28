@@ -8,6 +8,11 @@ const TravelLegSchema = new Schema(
     travelDate: { type: Date },
     fromLocation: { type: String, trim: true },
     toLocation: { type: String, trim: true },
+    // Accommodation tied to THIS leg's destination (used by group travel and by
+    // the "Travel + Hotel" / "Only Accommodation" request types).
+    accommodationPlace: { type: String, trim: true },
+    accommodationStartDate: { type: Date },
+    accommodationEndDate: { type: Date },
   },
   { _id: false }
 );
@@ -44,6 +49,11 @@ const TravelRequestSchema = new Schema(
     // from the first leg/stay so old readers keep working.
     travelLegs: { type: [TravelLegSchema], default: [] },
     accommodations: { type: [AccommodationSchema], default: [] },
+    // Group travel raised by a reporting manager for a team member.
+    isGroupRequest: { type: Boolean, default: false },
+    groupId: { type: String, trim: true, default: "" },
+    requestedByEmail: { type: String, trim: true, default: "" },
+    requestedByName: { type: String, trim: true, default: "" },
     purposeOfTravel: { type: String, trim: true },
     eventDetails: { type: String, trim: true },
     eventLocation: { type: String, trim: true },

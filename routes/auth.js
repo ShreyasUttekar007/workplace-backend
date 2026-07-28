@@ -144,6 +144,33 @@ router.post("/login", async (req, res, next) => {
   }
 });
 
+// A reporting manager's team: users who report to the logged-in user (primary or
+// secondary RM). Used to raise group travel requests.
+router.get("/my-team", authenticateUser, async (req, res, next) => {
+  try {
+    const myEmail = (req.user?.email || "").toLowerCase();
+    if (!myEmail) {
+      return res.status(400).json({ message: "Missing user email." });
+    }
+    const team = await User.find(
+      {
+        $or: [
+          { reportingManagerEmail: { $regex: new RegExp(`^${myEmail}$`, "i") } },
+          {
+            secondaryReportingManagerEmail: {
+              $regex: new RegExp(`^${myEmail}$`, "i"),
+            },
+          },
+        ],
+      },
+      { password: 0 }
+    ).sort({ userName: 1 });
+    res.status(200).json(team);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/users", authenticateUser, async (req, res, next) => {
   try {
     // A Punjab-only manager (e.g. Shalini) sees just Punjab users. Admins and
