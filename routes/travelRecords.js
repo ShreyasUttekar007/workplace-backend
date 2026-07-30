@@ -177,23 +177,36 @@ router.post("/group-travel-record", async (req, res) => {
     }
 
     const {
-      members, // [{ userId, email }]
+      itineraries, // [{ members:[{userId,email}], travelLegs:[...], eventDetails }]
+      members, // legacy single-block shape
+      travelLegs, // legacy single-block shape
+      eventDetails, // legacy single-block shape
       requestType,
-      travelLegs,
       purposeOfTravel,
       eventName,
       eventLocation,
-      eventDetails,
       remarks,
       travelInstructedBy,
     } = req.body;
 
-    if (!Array.isArray(members) || members.length === 0) {
-      return res.status(400).json({ error: "Select at least one team member." });
-    }
-    const legs = Array.isArray(travelLegs) ? travelLegs.filter(Boolean) : [];
-    if (legs.length === 0) {
-      return res.status(400).json({ error: "Add at least one leg." });
+    // Normalise to a list of blocks. New clients send `itineraries`; older ones
+    // send a single members/travelLegs/eventDetails set.
+    const blocks =
+      Array.isArray(itineraries) && itineraries.length
+        ? itineraries
+        : [{ members, travelLegs, eventDetails }];
+
+    // Basic validation across all blocks.
+    for (const b of blocks) {
+      if (!b || !Array.isArray(b.members) || b.members.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "Each itinerary needs at least one team member." });
+      }
+      const bl = Array.isArray(b.travelLegs) ? b.travelLegs.filter(Boolean) : [];
+      if (bl.length === 0) {
+        return res.status(400).json({ error: "Each itinerary needs at least one leg." });
+      }
     }
 
     const fmt = (d) => (d ? new Date(d).toLocaleString("en-GB") : "NA");
@@ -204,44 +217,49 @@ router.post("/group-travel-record", async (req, res) => {
 
     const created = [];
     const failed = [];
-    for (const m of members) {
-      if (!m || !m.email || !m.userId) {
-        failed.push({ email: m && m.email, reason: "Missing email or userId" });
-        continue;
-      }
-      try {
-        const recordData = {
-          userId: m.userId,
-          email: m.email,
-          requestType,
-          travelLegs: legs,
-          purposeOfTravel,
-          eventName,
-          eventLocation,
-          eventDetails,
-          remarks,
-          travelInstructedBy,
-          isGroupRequest: true,
-          groupId,
-          requestedByEmail,
-          requestedByName,
-        };
-        // Keep legacy single fields aligned with the first leg for old readers.
-        if (legs[0]) {
-          recordData.travelDate = legs[0].travelDate;
-          recordData.fromLocation = legs[0].fromLocation;
-          recordData.toLocation = legs[0].toLocation;
-          recordData.accommodationStartDate = legs[0].accommodationStartDate;
-          recordData.accommodationEndDate = legs[0].accommodationEndDate;
-        }
-        const rec = await TravelRecord.create(recordData);
-        created.push({ email: m.email, name: rec.name, travelCode: rec.travelCode });
-      } catch (err) {
-        failed.push({ email: m.email, reason: err.message });
-      }
-    }
+    const emailBlocks = [];
 
-    try {
+    for (let bi = 0; bi < blocks.length; bi++) {
+      const block = blocks[bi];
+      const legs = (Array.isArray(block.travelLegs) ? block.travelLegs : []).filter(Boolean);
+      const blockEventDetails = block.eventDetails || "";
+
+      for (const m of block.members) {
+        if (!m || !m.email || !m.userId) {
+          failed.push({ email: m && m.email, reason: "Missing email or userId" });
+          continue;
+        }
+        try {
+          const recordData = {
+            userId: m.userId,
+            email: m.email,
+            requestType,
+            travelLegs: legs,
+            purposeOfTravel,
+            eventName,
+            eventLocation,
+            eventDetails: blockEventDetails,
+            remarks,
+            travelInstructedBy,
+            isGroupRequest: true,
+            groupId,
+            requestedByEmail,
+            requestedByName,
+          };
+          if (legs[0]) {
+            recordData.travelDate = legs[0].travelDate;
+            recordData.fromLocation = legs[0].fromLocation;
+            recordData.toLocation = legs[0].toLocation;
+            recordData.accommodationStartDate = legs[0].accommodationStartDate;
+            recordData.accommodationEndDate = legs[0].accommodationEndDate;
+          }
+          const rec = await TravelRecord.create(recordData);
+          created.push({ email: m.email, name: rec.name, travelCode: rec.travelCode });
+        } catch (err) {
+          failed.push({ email: m.email, reason: err.message });
+        }
+      }
+
       const legLines = legs
         .map((l, i) => {
           const travel =
@@ -251,15 +269,21 @@ router.post("/group-travel-record", async (req, res) => {
           const stay = l.accommodationPlace
             ? `stay: ${l.accommodationPlace} ${fmt(l.accommodationStartDate)} to ${fmt(l.accommodationEndDate)}`
             : "";
-          return `  ${i + 1}. ${[travel, stay].filter(Boolean).join(" | ")}`;
+          return `    ${i + 1}. ${[travel, stay].filter(Boolean).join(" | ")}`;
         })
         .join("\n");
-      const travellers = created.map((c) => `${c.name} (${c.email})`).join(", ");
+      const people = (block.members || []).map((mm) => mm.email).join(", ");
+      emailBlocks.push(
+        `Itinerary ${bi + 1}\n  Members: ${people}\n  Legs:\n${legLines}${blockEventDetails ? "\n  Event Details: " + blockEventDetails : ""}`
+      );
+    }
+
+    try {
       await sgMail.send({
         to: process.env.MAIL_FROM || "stc.portal@showtimeconsulting.in",
         from: process.env.MAIL_FROM || "stc.portal@showtimeconsulting.in",
-        subject: `Group Travel (${created.length}) — ${requestType} — by ${requestedByName}`,
-        text: `Group travel raised by ${requestedByName}.\n\nTravellers: ${travellers}\n\nRequest Type: ${requestType}\n\nItinerary:\n${legLines}\n\nEvent: ${eventName || "NA"}\nPurpose: ${purposeOfTravel || "NA"}\nRemarks: ${remarks || "N/A"}`,
+        subject: `Group Travel (${created.length} records, ${blocks.length} itinerary/ies) — ${requestType} — by ${requestedByName}`,
+        text: `Group travel raised by ${requestedByName}.\n\nRequest Type: ${requestType}\nPurpose: ${purposeOfTravel || "NA"}\nEvent: ${eventName || "NA"}\nRemarks: ${remarks || "N/A"}\n\n${emailBlocks.join("\n\n")}`,
       });
     } catch (mailErr) {
       console.error("Group travel email failed:", mailErr.message);
