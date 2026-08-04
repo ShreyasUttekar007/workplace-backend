@@ -330,10 +330,21 @@ router.get("/travel-requests-emails", authenticateUser, async (req, res) => {
       return res.status(400).json({ error: "User email is required." });
     }
 
+    // Emails granted full Admin Travel Data access (see all travel records),
+    // in addition to anyone with the "admin" role.
+    const TRAVEL_ADMIN_EMAILS = [
+      "rajkumar@showtimeconsulting.in",
+      "prathik.kethavath@showtimeconsulting.in",
+      "nikash.kumar@showtimeconsulting.in",
+    ];
+    const isTravelAdmin =
+      userRoles.includes("admin") ||
+      TRAVEL_ADMIN_EMAILS.includes((userEmail || "").toLowerCase());
+
     let leaveRequests;
 
-    // Check if the user is an admin
-    if (userRoles.includes("admin")) {
+    // Check if the user is an admin (role) or an allow-listed travel admin
+    if (isTravelAdmin) {
       // Fetch all travel requests if the user has the admin role
       leaveRequests = await TravelRecord.find().sort({ createdAt: -1 });
     } else {
