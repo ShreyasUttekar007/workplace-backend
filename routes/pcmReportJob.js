@@ -75,6 +75,11 @@ const RECIPIENTS = [
 ];
 const FROM = "stc.portal@showtimeconsulting.in";
 
+// Temporary (2YNAS D2D period): PCMs hold no meetings, so MoM counts show "NA"
+// and a notice banner is drawn on the report. Set to false to restore counts.
+const SHOW_MOM_AS_NA = true;
+const PCM_NOTICE = "Due to 2YNAS D2D visits by PCM no Meetings are being held";
+
 const fmtDateDDMMYYYY = (d) => {
   const dt = d ? new Date(d) : new Date();
   return dt.toLocaleDateString("en-GB"); // DD/MM/YYYY
@@ -104,7 +109,22 @@ const generatePDF = (report, dateLabel) => {
       .font("Helvetica")
       .fontSize(11)
       .text(dateLabel, { align: "center" });
-    doc.moveDown(0.8);
+    doc.moveDown(0.6);
+
+    // Notice banner (2YNAS D2D period).
+    if (SHOW_MOM_AS_NA) {
+      const bannerH = 22;
+      const bannerY = doc.y;
+      doc.rect(left, bannerY, usableW, bannerH).fill("#b91c1c");
+      doc
+        .fillColor("#ffffff")
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .text(PCM_NOTICE, left, bannerY + 6, { width: usableW, align: "center" });
+      doc.fillColor("#333").font("Helvetica");
+      doc.y = bannerY + bannerH + 8;
+    }
+    doc.moveDown(0.2);
 
     const snap = (report && report.snapshot) || {};
     // Snapshot grid (3 columns x 3 rows of label:value)
@@ -167,7 +187,7 @@ const generatePDF = (report, dateLabel) => {
         r.slNo || idx + 1,
         r.pcmName || "",
         r.pcMapped || "",
-        r._momCount == null ? "0" : String(r._momCount),
+        SHOW_MOM_AS_NA ? "NA" : (r._momCount == null ? "0" : String(r._momCount)),
         r.attendance || "",
         r.cabUsed || "",
         r.escalationRaised || "0",
@@ -257,7 +277,9 @@ const sendPcmReport = async () => {
 
   const pdfPath = await generatePDF(report, dateLabel);
   const attachment = fs.readFileSync(pdfPath).toString("base64");
-  const body = `PCM Activity & Attendance Report- ${dateLabel}`;
+  const body = `PCM Activity & Attendance Report- ${dateLabel}${
+    SHOW_MOM_AS_NA ? `\n\nNOTE: ${PCM_NOTICE}` : ""
+  }`;
 
   for (const to of RECIPIENTS) {
     const msg = {
