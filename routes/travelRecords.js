@@ -3,6 +3,7 @@ const router = express.Router();
 require("dotenv").config();
 const TravelRecord = require("../models/TravelRecord");
 const { roles } = require("../models/User");
+const User = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
 const sgMail = require("@sendgrid/mail");
 
@@ -79,6 +80,21 @@ router.post("/travel-record", async (req, res) => {
     if (stays[0]) {
       travelData.accommodationStartDate = stays[0].startDate;
       travelData.accommodationEndDate = stays[0].endDate;
+    }
+
+    // Two-stage approval: route to the requester's reporting manager for review.
+    // If they have no reporting manager, skip the reviewer stage (goes to admin).
+    try {
+      const requester = await User.findOne({ email: travelData.email });
+      const rmEmail = (requester?.reportingManagerEmail || "").trim();
+      if (rmEmail) {
+        travelData.reviewerEmail = rmEmail;
+        travelData.reviewerStatus = "pending";
+      } else {
+        travelData.reviewerStatus = "not_required";
+      }
+    } catch (e) {
+      travelData.reviewerStatus = "not_required";
     }
 
     // Create new travel request
@@ -265,6 +281,13 @@ router.post("/group-travel-record", async (req, res) => {
             groupId,
             requestedByEmail,
             requestedByName,
+            // The reporting manager raised this, so the reviewer stage is already
+            // satisfied — it goes straight to admin.
+            reviewerStatus: "approved",
+            reviewerEmail: requestedByEmail,
+            reviewedByEmail: requestedByEmail,
+            reviewedByName: requestedByName,
+            reviewedAt: new Date(),
           };
           if (legs[0]) {
             recordData.travelDate = legs[0].travelDate;
@@ -365,8 +388,18 @@ router.get("/travel-requests-emails", authenticateUser, async (req, res) => {
 
     // Check if the user is an admin (role) or an allow-listed travel admin
     if (isTravelAdmin) {
-      // Fetch all travel requests if the user has the admin role
-      leaveRequests = await TravelRecord.find().sort({ createdAt: -1 });
+      // Admin only sees requests that cleared the reviewer stage (approved by the
+      // reporting manager, or no reviewer was required). Records created BEFORE
+      // this feature have no reviewerStatus at all — keep showing those so nothing
+      // historical disappears from admin.
+      leaveRequests = await TravelRecord.find({
+        $or: [
+          { reviewerStatus: { $in: ["approved", "not_required"] } },
+          { reviewerStatus: { $exists: false } },
+          { reviewerStatus: null },
+          { reviewerStatus: "" },
+        ],
+      }).sort({ createdAt: -1 });
     } else {
       // Fetch travel requests where the user's email is mentioned in receiverEmail
       leaveRequests = await TravelRecord.find({
@@ -467,6 +500,59 @@ router.delete("/delete-mom/:momId", async (req, res) => {
 
     await TravelRecord.findByIdAndDelete(momId);
     res.status(200).json({ message: "Travel record deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ---- Reviewer (reporting manager) approval stage ----
+
+// Requests awaiting MY review (I am the assigned reviewer / reporting manager).
+router.get("/reviewer-queue", authenticateUser, async (req, res) => {
+  try {
+    const myEmail = (req.user?.email || "").toLowerCase();
+    if (!myEmail) return res.status(400).json({ error: "User email required." });
+    const records = await TravelRecord.find({
+      reviewerStatus: "pending",
+      reviewerEmail: { $regex: new RegExp(`^${myEmail}$`, "i") },
+    }).sort({ createdAt: -1 });
+    res.status(200).json({ records });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reviewer approves or rejects a request. Approve -> goes to admin. Reject -> stops.
+router.put("/reviewer-decision/:id", authenticateUser, async (req, res) => {
+  try {
+    const { decision } = req.body; // "approved" | "rejected"
+    if (!["approved", "rejected"].includes(decision)) {
+      return res.status(400).json({ error: "Invalid decision." });
+    }
+    const rec = await TravelRecord.findById(req.params.id);
+    if (!rec) return res.status(404).json({ error: "Request not found." });
+
+    const myEmail = (req.user?.email || "").toLowerCase();
+    const isReviewer = !!myEmail && (rec.reviewerEmail || "").toLowerCase() === myEmail;
+    const isAdmin = (req.user?.roles || []).includes("admin");
+    if (!isReviewer && !isAdmin) {
+      return res
+        .status(403)
+        .json({ error: "Only the assigned reviewer can act on this request." });
+    }
+    if (rec.reviewerStatus !== "pending") {
+      return res
+        .status(409)
+        .json({ error: `This request was already ${rec.reviewerStatus}.` });
+    }
+
+    rec.reviewerStatus = decision;
+    rec.reviewedByEmail = req.user.email;
+    rec.reviewedByName =
+      req.user.name || req.user.userName || req.user.email || "Reviewer";
+    rec.reviewedAt = new Date();
+    await rec.save();
+    res.status(200).json({ message: `Request ${decision}.` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

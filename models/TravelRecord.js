@@ -81,6 +81,17 @@ const TravelRequestSchema = new Schema(
       trim: true,
       default: "pending",
     },
+    // Two-stage approval: requester -> reviewer (reporting manager) -> admin.
+    // reviewerStatus: "pending" | "approved" | "rejected" | "not_required"
+    reviewerStatus: {
+      type: String,
+      trim: true,
+      default: "pending",
+    },
+    reviewerEmail: { type: String, trim: true, default: "" },
+    reviewedByEmail: { type: String, trim: true, default: "" },
+    reviewedByName: { type: String, trim: true, default: "" },
+    reviewedAt: { type: Date },
     age: {
       type: String,
       trim: true,
