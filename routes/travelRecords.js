@@ -10,6 +10,19 @@ router.use(authenticateUser);
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
+// Treat a datetime-local value (e.g. "2026-08-05T14:00", no timezone) as IST wall
+// time and return the correct instant, so times don't shift by the server's zone.
+const istDate = (v) => {
+  if (!v) return v;
+  if (v instanceof Date) return v;
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) {
+    const withSec = s.length === 16 ? s + ":00" : s;
+    return new Date(withSec + "+05:30");
+  }
+  return new Date(s);
+};
+
 router.post("/travel-record", async (req, res) => {
   try {
     const travelData = req.body;
@@ -221,7 +234,14 @@ router.post("/group-travel-record", async (req, res) => {
 
     for (let bi = 0; bi < blocks.length; bi++) {
       const block = blocks[bi];
-      const legs = (Array.isArray(block.travelLegs) ? block.travelLegs : []).filter(Boolean);
+      const legs = (Array.isArray(block.travelLegs) ? block.travelLegs : [])
+        .filter(Boolean)
+        .map((l) => ({
+          ...l,
+          travelDate: istDate(l.travelDate),
+          accommodationStartDate: istDate(l.accommodationStartDate),
+          accommodationEndDate: istDate(l.accommodationEndDate),
+        }));
       const blockEventDetails = block.eventDetails || "";
 
       for (const m of block.members) {
@@ -426,10 +446,26 @@ router.put("/update-travel-status/:id", async (req, res) => {
 router.delete("/delete-mom/:momId", async (req, res) => {
   try {
     const { momId } = req.params;
-    const deletedMom = await TravelRecord.findByIdAndDelete(momId);
-    if (!deletedMom) {
+    const rec = await TravelRecord.findById(momId);
+    if (!rec) {
       return res.status(404).json({ error: "Travel record not found" });
     }
+
+    // Only the person who RAISED the request (group), the traveller who owns the
+    // record (self), or an admin may delete it.
+    const myEmail = (req.user?.email || "").toLowerCase();
+    const myId = String(req.user?._id || req.user?.userId || "");
+    const isRaiser =
+      !!myEmail && (rec.requestedByEmail || "").toLowerCase() === myEmail;
+    const isOwner = !!myId && String(rec.userId || "") === myId;
+    const isAdmin = (req.user?.roles || []).includes("admin");
+    if (!isRaiser && !isOwner && !isAdmin) {
+      return res
+        .status(403)
+        .json({ error: "You can only delete requests you raised." });
+    }
+
+    await TravelRecord.findByIdAndDelete(momId);
     res.status(200).json({ message: "Travel record deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
