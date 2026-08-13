@@ -68,18 +68,28 @@ router.post("/travel-record", async (req, res) => {
           ]
         : [];
 
-    travelData.travelLegs = legs;
-    travelData.accommodations = stays;
+    // Anchor self-request datetimes to IST so times don't shift by server zone.
+    const istLegs = legs.map((l) => ({
+      ...l,
+      travelDate: istDate(l.travelDate),
+    }));
+    const istStays = stays.map((a) => ({
+      ...a,
+      startDate: istDate(a.startDate),
+      endDate: istDate(a.endDate),
+    }));
+    travelData.travelLegs = istLegs;
+    travelData.accommodations = istStays;
     // Keep legacy single fields in sync with the first leg/stay so old readers
     // (tables, reports) still show something sensible.
-    if (legs[0]) {
-      travelData.travelDate = legs[0].travelDate;
-      travelData.fromLocation = legs[0].fromLocation;
-      travelData.toLocation = legs[0].toLocation;
+    if (istLegs[0]) {
+      travelData.travelDate = istLegs[0].travelDate;
+      travelData.fromLocation = istLegs[0].fromLocation;
+      travelData.toLocation = istLegs[0].toLocation;
     }
-    if (stays[0]) {
-      travelData.accommodationStartDate = stays[0].startDate;
-      travelData.accommodationEndDate = stays[0].endDate;
+    if (istStays[0]) {
+      travelData.accommodationStartDate = istStays[0].startDate;
+      travelData.accommodationEndDate = istStays[0].endDate;
     }
 
     // Two-stage approval: route to the requester's reporting manager for review.
@@ -244,6 +254,15 @@ router.post("/group-travel-record", async (req, res) => {
       req.user.name || req.user.userName || req.user.email || "Reporting Manager";
     const groupId = `TRG-${Date.now().toString(36).toUpperCase()}`;
 
+    // Who reviews this group request? If the raiser is the MANAGER of the people
+    // being booked (they report to the raiser), it's manager-raised -> skip review
+    // and go straight to admin. Otherwise (a team member booking teammates) it goes
+    // to the raiser's reporting manager for approval, then admin.
+    const raiserRec = await User.findOne({
+      email: { $regex: new RegExp(`^${requestedByEmail}$`, "i") },
+    });
+    const raiserRM = (raiserRec?.reportingManagerEmail || "").trim();
+
     const created = [];
     const failed = [];
     const emailBlocks = [];
@@ -259,6 +278,37 @@ router.post("/group-travel-record", async (req, res) => {
           accommodationEndDate: istDate(l.accommodationEndDate),
         }));
       const blockEventDetails = block.eventDetails || "";
+
+      // Decide the reviewer for THIS block.
+      const blockEmails = (block.members || []).map((m) => m.email).filter(Boolean);
+      const memberRecs = blockEmails.length
+        ? await User.find({ email: { $in: blockEmails } })
+        : [];
+      const raiserIsTheirManager =
+        memberRecs.length > 0 &&
+        memberRecs.every(
+          (mr) => (mr.reportingManagerEmail || "").toLowerCase() === requestedByEmail
+        );
+      let reviewerFields;
+      if (raiserIsTheirManager) {
+        // Manager booked their own reports -> reviewer stage already satisfied.
+        reviewerFields = {
+          reviewerStatus: "approved",
+          reviewerEmail: requestedByEmail,
+          reviewedByEmail: requestedByEmail,
+          reviewedByName: requestedByName,
+          reviewedAt: new Date(),
+        };
+      } else if (raiserRM) {
+        // Team member booked teammates -> route to the raiser's reporting manager.
+        reviewerFields = {
+          reviewerStatus: "pending",
+          reviewerEmail: raiserRM,
+        };
+      } else {
+        // No reporting manager above the raiser -> straight to admin.
+        reviewerFields = { reviewerStatus: "not_required" };
+      }
 
       for (const m of block.members) {
         if (!m || !m.email || !m.userId) {
@@ -281,13 +331,7 @@ router.post("/group-travel-record", async (req, res) => {
             groupId,
             requestedByEmail,
             requestedByName,
-            // The reporting manager raised this, so the reviewer stage is already
-            // satisfied — it goes straight to admin.
-            reviewerStatus: "approved",
-            reviewerEmail: requestedByEmail,
-            reviewedByEmail: requestedByEmail,
-            reviewedByName: requestedByName,
-            reviewedAt: new Date(),
+            ...reviewerFields,
           };
           if (legs[0]) {
             recordData.travelDate = legs[0].travelDate;

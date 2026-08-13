@@ -152,19 +152,45 @@ router.get("/my-team", authenticateUser, async (req, res, next) => {
     if (!myEmail) {
       return res.status(400).json({ message: "Missing user email." });
     }
-    const team = await User.find(
-      {
-        $or: [
-          { reportingManagerEmail: { $regex: new RegExp(`^${myEmail}$`, "i") } },
-          {
-            secondaryReportingManagerEmail: {
-              $regex: new RegExp(`^${myEmail}$`, "i"),
-            },
-          },
-        ],
-      },
+
+    // My own record — used to find my peers (same reporting manager) and to allow
+    // me to add myself to a group booking.
+    const meRec = await User.findOne(
+      { email: { $regex: new RegExp(`^${myEmail}$`, "i") } },
       { password: 0 }
-    ).sort({ userName: 1 });
+    );
+    const myRM = (meRec?.reportingManagerEmail || "").trim();
+
+    const or = [
+      // people who report to me (I'm their manager)
+      { reportingManagerEmail: { $regex: new RegExp(`^${myEmail}$`, "i") } },
+      { secondaryReportingManagerEmail: { $regex: new RegExp(`^${myEmail}$`, "i") } },
+    ];
+    // my teammates — everyone who shares my reporting manager
+    if (myRM) {
+      or.push({ reportingManagerEmail: { $regex: new RegExp(`^${myRM}$`, "i") } });
+    }
+
+    const found = await User.find({ $or: or }, { password: 0 }).sort({
+      userName: 1,
+    });
+
+    // include myself so I can book travel for myself + teammates
+    const list = [...found];
+    if (meRec && !list.some((u) => String(u._id) === String(meRec._id))) {
+      list.push(meRec);
+    }
+    // de-duplicate by id
+    const seen = new Set();
+    const team = list
+      .filter((u) => {
+        const id = String(u._id);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      .sort((a, b) => (a.userName || "").localeCompare(b.userName || ""));
+
     res.status(200).json(team);
   } catch (error) {
     next(error);
