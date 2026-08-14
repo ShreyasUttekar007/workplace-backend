@@ -27,16 +27,26 @@ function punjabAwareStateScope(req) {
   const roles = (req.user && req.user.roles) || [];
   const email = (req.user && req.user.email) || "__none__";
 
+  // A PCM must see ONLY their own meeting records — never other PCMs' records in
+  // the same PC/AC/district. Zonal / State Lead / admin keep their wider view.
+  const roleStrs = (Array.isArray(roles) ? roles : []).map(String);
+  const isPcm =
+    roleStrs.includes("PCM") &&
+    !roleStrs.includes("Zonal") &&
+    !roleStrs.includes("State Lead");
+
   if (userState === "Punjab") {
+    if (isPcm) return { state: "Punjab", createdByEmail: email };
     const sc = punjabGeo.punjabScope(roles);
     if (sc.mode === "all") return { state: "Punjab" };
     if (sc.mode === "geo") return { state: "Punjab", ...sc.filter };
     return { state: "Punjab", createdByEmail: email };
   }
 
-  // Andhra Pradesh: Zonal -> zone, PCM -> pc/ac, State Lead -> zones,
+  // Andhra Pradesh: Zonal -> zone, PCM -> own records, State Lead -> zones,
   // admin/mod/state -> all AP, unmapped -> own only. (MoM AC field = location.)
   if (userState === "Andhra Pradesh") {
+    if (isPcm) return { state: "Andhra Pradesh", createdByEmail: email };
     const sc = apScope(roles);
     if (sc.mode === "all") return { state: "Andhra Pradesh" };
     if (sc.mode === "geo") {
