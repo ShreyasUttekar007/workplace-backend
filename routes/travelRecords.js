@@ -590,12 +590,19 @@ router.put("/reviewer-decision/:id", authenticateUser, async (req, res) => {
         .json({ error: `This request was already ${rec.reviewerStatus}.` });
     }
 
-    rec.reviewerStatus = decision;
-    rec.reviewedByEmail = req.user.email;
-    rec.reviewedByName =
-      req.user.name || req.user.userName || req.user.email || "Reviewer";
-    rec.reviewedAt = new Date();
-    await rec.save();
+    // Persist via findByIdAndUpdate so the model's pre-save hook (which re-validates
+    // employee data and can throw) does NOT block a simple status change.
+    await TravelRecord.findByIdAndUpdate(
+      req.params.id,
+      {
+        reviewerStatus: decision,
+        reviewedByEmail: req.user.email,
+        reviewedByName:
+          req.user.name || req.user.userName || req.user.email || "Reviewer",
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    );
     res.status(200).json({ message: `Request ${decision}.` });
   } catch (error) {
     res.status(500).json({ error: error.message });
