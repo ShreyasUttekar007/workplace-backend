@@ -4,6 +4,7 @@ const multer = require("multer");
 const authenticateUser = require("../middleware/authenticateUser");
 const punjabGeo = require("../utils/punjabGeo");
 const acMapping = require("../utils/acMapping");
+const summaryMeta = require("../utils/boothSummaryMeta");
 const BoothList = require("../models/PunjabBoothList");
 const BoothDetails = require("../models/PunjabBoothDetails");
 const User = require("../models/User");
@@ -255,6 +256,92 @@ router.get("/manager-data", async (req, res) => {
     });
 
     res.json({ acNo, ac, district, acmName, rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ---- Reporting-manager SUMMARY: one row per AC with Yes-counts ----
+const YESNO_FIELDS = [
+  "voterListReceivedAtOffice", "voterListDistributed", "casteCensusStatus",
+  "voterListReceived", "boothPradhanAppointed", "womenBoothPradhanAppointed",
+  "scBoothPradhanAppointed", "bcBoothPradhanAppointed", "youthBoothPradhanAppointed",
+  "committee11Formed", "circleInchargeMapped",
+];
+const TEXT_COUNT_FIELDS = ["circleInchargeName", "boothPocName", "remark"];
+
+router.get("/summary", async (req, res) => {
+  try {
+    if (!isManagerViewer(req)) {
+      return res.status(403).json({ error: "Not authorised to view booth data." });
+    }
+    const district = (req.query.district || "").trim();
+    const acNoFilter = parseInt(req.query.acNo, 10);
+
+    // Which ACs to include (filtered by the dropdowns).
+    let metaRows = summaryMeta.all();
+    if (!Number.isNaN(acNoFilter)) {
+      metaRows = metaRows.filter((m) => Number(m.acNo) === acNoFilter);
+    } else if (district) {
+      metaRows = metaRows.filter(
+        (m) => (m.district || "").toLowerCase() === district.toLowerCase()
+      );
+    }
+    const acNos = metaRows.map((m) => Number(m.acNo));
+    if (!acNos.length) return res.json({ rows: [] });
+
+    // Total booths per AC.
+    const totals = await BoothList.aggregate([
+      { $match: { acNo: { $in: acNos } } },
+      { $group: { _id: "$acNo", total: { $sum: 1 } } },
+    ]);
+    const totalByAc = {};
+    totals.forEach((t) => { totalByAc[t._id] = t.total; });
+
+    // Yes-counts (and non-empty counts for text fields) per AC.
+    const yesSum = {};
+    YESNO_FIELDS.forEach((f) => {
+      yesSum[f] = { $sum: { $cond: [{ $eq: [`$${f}`, "Yes"] }, 1, 0] } };
+    });
+    TEXT_COUNT_FIELDS.forEach((f) => {
+      yesSum[f] = {
+        $sum: { $cond: [{ $gt: [{ $strLenCP: { $ifNull: [`$${f}`, ""] } }, 0] }, 1, 0] },
+      };
+    });
+    const agg = await BoothDetails.aggregate([
+      { $match: { acNo: { $in: acNos } } },
+      { $group: { _id: "$acNo", filled: { $sum: 1 }, ...yesSum } },
+    ]);
+    const countsByAc = {};
+    agg.forEach((a) => { countsByAc[a._id] = a; });
+
+    const rows = metaRows.map((m) => {
+      const acNo = Number(m.acNo);
+      const c = countsByAc[acNo] || {};
+      const total = totalByAc[acNo] || 0;
+      let acmName = m.acmName || "";
+      if (!acmName) {
+        const info = acMapping.infoForAcNo(acNo);
+        acmName = info ? info.acmName : "";
+      }
+      const row = {
+        region: m.region || "",
+        mappedResource: m.mappedResource || "",
+        district: m.district || "",
+        dpoc: m.dpoc || "",
+        acNo,
+        acName: m.acName || "",
+        priority: m.priority || "",
+        category: m.category || "",
+        acmName,
+        totalBooth: total,
+        status: (c.filled || 0) > 0 ? "Updated" : "Not updated",
+      };
+      [...YESNO_FIELDS, ...TEXT_COUNT_FIELDS].forEach((f) => { row[f] = c[f] || 0; });
+      return row;
+    });
+
+    res.json({ rows });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
