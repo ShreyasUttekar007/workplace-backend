@@ -19,6 +19,26 @@ const isUploadAdmin = (req) =>
   (req.user?.roles || []).includes("admin") ||
   UPLOAD_ADMINS.includes((req.user?.email || "").toLowerCase());
 
+// Reporting managers who can see ALL filled booth data.
+// TODO: add the login emails for Shalini, Anurag, Robbin, Rajvardhan Chauhan.
+const MANAGER_EMAILS = [
+  "pardhasaradhi@showtimeconsulting.in",
+  // "shalini@showtimeconsulting.in",
+  // "anurag@showtimeconsulting.in",
+  // "robbin@showtimeconsulting.in",
+  // "rajvardhan.chauhan@showtimeconsulting.in",
+];
+const isManagerViewer = (req) => {
+  const roles = req.user?.roles || [];
+  const email = (req.user?.email || "").toLowerCase();
+  return (
+    roles.includes("admin") ||
+    roles.includes("mod") ||
+    roles.includes("state") ||
+    MANAGER_EMAILS.includes(email)
+  );
+};
+
 function myAcNo(req) {
   const m = acMapping.acForEmail(req.user?.email || "");
   return m ? Number(m.acNo) : null;
@@ -174,6 +194,55 @@ router.post("/details", async (req, res) => {
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
     res.json({ message: status === "submitted" ? "Submitted." : "Saved.", details: doc });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ---- Reporting-manager view: ALL filled booth data for a chosen assembly ----
+router.get("/manager-data", async (req, res) => {
+  try {
+    if (!isManagerViewer(req)) {
+      return res.status(403).json({ error: "Not authorised to view booth data." });
+    }
+    const acNo = parseInt(req.query.acNo, 10);
+    if (Number.isNaN(acNo)) return res.status(400).json({ error: "acNo is required." });
+
+    const booths = await BoothList.find({ acNo }).sort({ partNo: 1 }).lean();
+    const details = await BoothDetails.find({ acNo }).lean();
+    const byPart = {};
+    details.forEach((d) => { byPart[d.partNo] = d; });
+
+    const info = acMapping.infoForAcNo(acNo);
+    const acmName = info ? info.acmName : "";
+    const ac = (booths[0] && booths[0].ac) || (info && info.acName) || "";
+    const district = (booths[0] && booths[0].district) || "";
+
+    const rows = booths.map((b) => {
+      const d = byPart[b.partNo] || {};
+      return {
+        acm: acmName || d.filledByName || "",
+        partNo: b.partNo,
+        partName: b.partName,
+        voterListReceivedAtOffice: d.voterListReceivedAtOffice || "",
+        voterListDistributed: d.voterListDistributed || "",
+        casteCensusStatus: d.casteCensusStatus || "",
+        voterListReceived: d.voterListReceived || "",
+        boothPradhanAppointed: d.boothPradhanAppointed || "",
+        womenBoothPradhanAppointed: d.womenBoothPradhanAppointed || "",
+        scBoothPradhanAppointed: d.scBoothPradhanAppointed || "",
+        bcBoothPradhanAppointed: d.bcBoothPradhanAppointed || "",
+        youthBoothPradhanAppointed: d.youthBoothPradhanAppointed || "",
+        committee11Formed: d.committee11Formed || "",
+        circleInchargeMapped: d.circleInchargeMapped || "",
+        circleInchargeName: d.circleInchargeName || "",
+        boothPocName: d.boothPocName || "",
+        remark: d.remark || "",
+        status: d.status || "",
+      };
+    });
+
+    res.json({ acNo, ac, district, acmName, rows });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
