@@ -6,6 +6,7 @@ const punjabGeo = require("../utils/punjabGeo");
 const acMapping = require("../utils/acMapping");
 const BoothList = require("../models/PunjabBoothList");
 const BoothDetails = require("../models/PunjabBoothDetails");
+const User = require("../models/User");
 
 router.use(authenticateUser);
 
@@ -214,9 +215,20 @@ router.get("/manager-data", async (req, res) => {
     details.forEach((d) => { byPart[d.partNo] = d; });
 
     const info = acMapping.infoForAcNo(acNo);
-    const acmName = info ? info.acmName : "";
+    let acmName = info ? info.acmName : "";
     const ac = (booths[0] && booths[0].ac) || (info && info.acName) || "";
     const district = (booths[0] && booths[0].district) || "";
+
+    // Fallback: if the mapping has no ACM for this AC, use the Punjab user whose
+    // role is this assembly (the resource mapped to it).
+    if (!acmName && ac) {
+      try {
+        const u = await User.findOne({ roles: ac }).lean();
+        if (u) acmName = u.userName || u.name || "";
+      } catch (e) {
+        /* ignore */
+      }
+    }
 
     const rows = booths.map((b) => {
       const d = byPart[b.partNo] || {};
