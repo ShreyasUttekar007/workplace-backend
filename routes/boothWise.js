@@ -347,4 +347,109 @@ router.get("/summary", async (req, res) => {
   }
 });
 
+// ---- Admin: bulk-import FILLED booth details from a CSV (migrate sheet data) ----
+const IMPORT_YESNO = [
+  ["voter list received at party office", "voterListReceivedAtOffice"],
+  ["voter list distributed", "voterListDistributed"],
+  ["caste census status", "casteCensusStatus"],
+  ["voter list received", "voterListReceived"],
+  ["booth pradhan appointed", "boothPradhanAppointed"],
+  ["women booth pradhan appointed", "womenBoothPradhanAppointed"],
+  ["sc booth pradhan appointed", "scBoothPradhanAppointed"],
+  ["bc booth pradhan appointed", "bcBoothPradhanAppointed"],
+  ["youth booth pradhan appointed", "youthBoothPradhanAppointed"],
+  ["total 11 membre committee formed", "committee11Formed"],
+  ["total 11 member committee formed", "committee11Formed"],
+  ["circle incharge mapped", "circleInchargeMapped"],
+];
+const IMPORT_TEXT = [
+  ["name of the circle incharge", "circleInchargeName"],
+  ["name of the mapped circle incharge", "circleInchargeName"],
+  ["name of booth poc mapped", "boothPocName"],
+  ["remark", "remark"],
+];
+const normYN = (v) => {
+  const s = String(v == null ? "" : v).trim().toLowerCase();
+  if (!s) return "";
+  if (["yes", "y", "true", "1"].includes(s)) return "Yes";
+  if (["no", "n", "false", "0"].includes(s)) return "No";
+  if (["may be", "maybe", "m"].includes(s)) return "May be";
+  return String(v).trim(); // keep anything unexpected rather than losing it
+};
+
+router.post("/import-details", upload.single("file"), async (req, res) => {
+  try {
+    if (!isUploadAdmin(req)) return res.status(403).json({ error: "Not authorised to import." });
+    const acNo = parseInt(req.body.acNo, 10);
+    const ac = (req.body.ac || "").trim();
+    const district = (req.body.district || "").trim();
+    const lock = String(req.body.lock) === "true";
+    if (Number.isNaN(acNo)) return res.status(400).json({ error: "AC number is required." });
+    if (!req.file) return res.status(400).json({ error: "No file uploaded." });
+
+    const rows = parseCSV(req.file.buffer.toString("utf8"));
+    if (rows.length < 2) return res.status(400).json({ error: "Empty file." });
+    const header = rows[0].map((h) => String(h).trim().toLowerCase());
+    const partIdx = header.indexOf("part");
+    if (partIdx === -1) return res.status(400).json({ error: "CSV must have a 'Part' column." });
+
+    // Resolve column indices for each known field header.
+    const ynIdx = {}; // key -> column index
+    IMPORT_YESNO.forEach(([h, key]) => { const i = header.indexOf(h); if (i !== -1) ynIdx[key] = i; });
+    const txIdx = {};
+    IMPORT_TEXT.forEach(([h, key]) => { const i = header.indexOf(h); if (i !== -1) txIdx[key] = i; });
+
+    const ops = [];
+    let imported = 0, skipped = 0;
+    const filledByName = req.user?.name || req.user?.userName || req.user?.email || "Import";
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const { partNo } = parsePart(row[partIdx]);
+      if (partNo == null) { skipped++; continue; }
+
+      const set = {};
+      let hasData = false;
+      Object.entries(ynIdx).forEach(([key, idx]) => {
+        const v = normYN(row[idx]);
+        set[key] = v;
+        if (v) hasData = true;
+      });
+      Object.entries(txIdx).forEach(([key, idx]) => {
+        const v = String(row[idx] == null ? "" : row[idx]).trim();
+        set[key] = v;
+        if (v) hasData = true;
+      });
+
+      // Skip fully-blank rows so a template upload never wipes saved data.
+      if (!hasData) { skipped++; continue; }
+
+      set.acNo = acNo;
+      set.partNo = partNo;
+      set.ac = ac;
+      set.district = district;
+      set.status = lock ? "submitted" : "draft";
+      set.filledByEmail = req.user?.email || "";
+      set.filledByName = filledByName;
+      if (lock) set.submittedAt = new Date();
+
+      ops.push({
+        updateOne: {
+          filter: { acNo, partNo },
+          update: { $set: set },
+          upsert: true,
+        },
+      });
+      imported++;
+    }
+
+    if (!ops.length) {
+      return res.status(400).json({ error: "No filled rows found to import.", imported: 0, skipped });
+    }
+    await BoothDetails.bulkWrite(ops);
+    res.json({ message: `Imported ${imported} booth(s) for ${ac || acNo}. Skipped ${skipped} blank/invalid.`, imported, skipped });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
