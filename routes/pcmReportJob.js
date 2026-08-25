@@ -77,7 +77,7 @@ const FROM = "stc.portal@showtimeconsulting.in";
 
 // Temporary (2YNAS D2D period): PCMs hold no meetings, so MoM counts show "NA"
 // and a notice banner is drawn on the report. Set to false to restore counts.
-const SHOW_MOM_AS_NA = true;
+const SHOW_MOM_AS_NA = false;
 const PCM_NOTICE = "Due to 2YNAS D2D visits by PCM no Meetings are being held";
 
 const fmtDateDDMMYYYY = (d) => {
