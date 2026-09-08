@@ -28,6 +28,55 @@ const num = (v) => {
 };
 const clean = (v) => String(v == null ? "" : v).replace(/\s+/g, " ").trim();
 
+
+// Sheets returns dated headers as formatted strings (e.g. "23-08-2026", "23/08/2026",
+// "2026-08-23"). Parse them properly so the trend axis shows real dates.
+function parseHeaderDate(h) {
+  const s = String(h || "").trim();
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/); // YYYY-MM-DD
+  if (m) return { y: +m[1], mo: +m[2], d: +m[3] };
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);      // DD-MM-YYYY or MM-DD-YYYY
+  if (m) return { a: +m[1], b: +m[2], y: +m[3], ambiguous: true };
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() };
+  return null;
+}
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const pad = (n) => String(n).padStart(2, "0");
+
+// Resolve DD/MM vs MM/DD across the whole set: the columns run in date order, so
+// pick the reading that produces an increasing sequence.
+function resolveDateLabels(rawLabels) {
+  const parsed = rawLabels.map(parseHeaderDate);
+  const anyAmbiguous = parsed.some((p) => p && p.ambiguous);
+  let dayFirst = true;
+  if (anyAmbiguous) {
+    const score = (df) => {
+      let prev = 0, ok = 0;
+      parsed.forEach((p) => {
+        if (!p) return;
+        const mo = p.ambiguous ? (df ? p.b : p.a) : p.mo;
+        const d = p.ambiguous ? (df ? p.a : p.b) : p.d;
+        if (mo < 1 || mo > 12 || d < 1 || d > 31) { ok -= 5; return; }
+        const t = p.y * 10000 + mo * 100 + d;
+        if (t >= prev) ok += 1;
+        prev = t;
+      });
+      return ok;
+    };
+    dayFirst = score(true) >= score(false);
+  }
+  return parsed.map((p, i) => {
+    if (!p) return { display: String(rawLabels[i]), iso: "" };
+    const mo = p.ambiguous ? (dayFirst ? p.b : p.a) : p.mo;
+    const d = p.ambiguous ? (dayFirst ? p.a : p.b) : p.d;
+    return {
+      display: `${pad(d)} ${MONTHS[Math.min(Math.max(mo, 1), 12) - 1]}`,
+      iso: `${p.y}-${pad(mo)}-${pad(d)}`,
+    };
+  });
+}
+
 function parseCasteSheet(rows) {
   let hIdx = rows.findIndex((r) => (r || []).some((c) => clean(c).toLowerCase() === "ac name"));
   if (hIdx === -1) hIdx = 0;
@@ -97,10 +146,17 @@ router.get("/caste-census", async (req, res) => {
 
     // Column-wise totals for the trend; drop columns that are entirely empty
     // (blank sheet columns would otherwise show as a drop to zero).
+    const nice = resolveDateLabels(dateLabels);
     const trend = [];
     dateLabels.forEach((label, i) => {
       const value = records.reduce((a, r) => a + (r.series[i] || 0), 0);
-      if (value > 0) trend.push({ label, value });
+      if (value > 0) {
+        trend.push({
+          label: nice[i].display || String(label),
+          iso: nice[i].iso || "",
+          value,
+        });
+      }
     });
 
     res.json({ records, trend, updatedAt: new Date().toISOString() });
