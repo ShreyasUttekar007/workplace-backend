@@ -27,3 +27,4 @@ node_modules
 *.pem
 *.bak
 credentials/
+config/gsheets-key.json
