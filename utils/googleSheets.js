@@ -20,34 +20,37 @@ const KEY_FILE =
 const CACHE_MS = Number(process.env.SHEETS_CACHE_MS || 5 * 60 * 1000);
 const cache = new Map(); // key -> { at, rows }
 
-let clientPromise = null;
-function getClient() {
+// One client per key file, so different sheets can use different service accounts.
+const clients = new Map();
+function getClient(keyFile) {
+  const kf = keyFile || KEY_FILE;
   if (!googleapis) throw new Error("googleapis package is not installed on the server.");
-  if (!fs.existsSync(KEY_FILE)) {
-    throw new Error(`Google service-account key not found at ${KEY_FILE}`);
+  if (!fs.existsSync(kf)) {
+    throw new Error(`Google service-account key not found at ${kf}`);
   }
-  if (!clientPromise) {
+  if (!clients.has(kf)) {
     const { google } = googleapis;
     const auth = new google.auth.GoogleAuth({
-      keyFile: KEY_FILE,
+      keyFile: kf,
       scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
     });
-    clientPromise = auth.getClient().then((authClient) =>
-      google.sheets({ version: "v4", auth: authClient })
+    clients.set(
+      kf,
+      auth.getClient().then((authClient) => google.sheets({ version: "v4", auth: authClient }))
     );
   }
-  return clientPromise;
+  return clients.get(kf);
 }
 
 // Read a whole tab as a 2-D array of raw cell values.
-async function readTab(tabName, { spreadsheetId, force = false } = {}) {
+async function readTab(tabName, { spreadsheetId, keyFile, force = false } = {}) {
   const sheetId = spreadsheetId || process.env.PUNJAB_SHEET_ID;
   if (!sheetId) throw new Error("PUNJAB_SHEET_ID is not set in the environment.");
   const key = `${sheetId}::${tabName}`;
   const hit = cache.get(key);
   if (!force && hit && Date.now() - hit.at < CACHE_MS) return hit.rows;
 
-  const sheets = await getClient();
+  const sheets = await getClient(keyFile);
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
     range: `'${tabName}'`,

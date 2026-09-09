@@ -171,4 +171,113 @@ router.post("/refresh", async (req, res) => {
   res.json({ message: "Cache cleared." });
 });
 
+
+/* ------------------- Region Wise Interventions dashboard ------------------- */
+const INTERVENTIONS_TAB = process.env.INTERVENTIONS_TAB || "Region wise Intervention";
+
+const isVacant = (v) => {
+  const t = clean(v).toLowerCase();
+  return !t || ["not appointed", "na", "n/a", "-", "nil", "none", "vacant"].includes(t);
+};
+
+const ISSUE_CATEGORIES = [
+  ["Caste Census & Booth Committees", [
+    "caste census", "caste cenus", "booth committee", "booth commitee", "booth commmitee",
+    "committee formation", "circle committee", "booth pradhan", "committees",
+  ]],
+  ["Internal Coordination & Factionalism", [
+    "coordination", "cordination", "factional", "faction", "internal difference",
+    "internal conflict", "internal issue", "differences", "conflict", "friction",
+    "discontent", "sidelined", "rift", "perception",
+  ]],
+  ["Leadership Vacancy & Absence", [
+    "not appointed", "non-appointment", "no halka incharge", "vacant", "vacancy",
+    "absence", "absent", "inactive", "activation of", "weak and inactive",
+  ]],
+  ["Candidate & Alignment Dynamics", [
+    "joining", "candidature", "party switch", "induction", "alliance", "ticket",
+    "defect", "candidate",
+  ]],
+  ["Wing & Organizational Setup", [
+    "wing", "office setup", "party office", "organisational weakness",
+    "organizational weakness", "organisational work", "organizational work",
+  ]],
+];
+
+function categorise(rec) {
+  // A Category column in the sheet always wins, if present.
+  if (rec.category) return rec.category;
+  // Classify on the Issue Summary (the Brief is long prose and over-matches).
+  const primary = (rec.issueSummary || "").toLowerCase();
+  for (const [name, keys] of ISSUE_CATEGORIES) {
+    if (keys.some((k) => primary.includes(k))) return name;
+  }
+  const secondary = (rec.brief || "").toLowerCase();
+  for (const [name, keys] of ISSUE_CATEGORIES) {
+    if (keys.some((k) => secondary.includes(k))) return name;
+  }
+  return "Other Local Matters";
+}
+
+function parseInterventions(rows) {
+  let hIdx = rows.findIndex((r) => (r || []).some((c) => clean(c).toLowerCase() === "ac name"));
+  if (hIdx === -1) hIdx = 0;
+  const header = (rows[hIdx] || []).map((c) => clean(c));
+  const lower = header.map((h) => h.toLowerCase());
+  const col = (n) => lower.findIndex((h) => h.includes(n));
+  const idx = {
+    region: col("region"),
+    district: col("district"),
+    acNo: col("ac no"),
+    acName: col("ac name"),
+    coordinator: col("halka coordinator"),
+    incharge: lower.findIndex((h) => h.includes("halka incharge") || h.includes("halka in-charge")),
+    leader: col("leader involved"),
+    issueSummary: col("issue summary"),
+    brief: col("brief"),
+    actionable: col("political actionable"),
+    category: col("category"),
+  };
+
+  const out = [];
+  for (let r = hIdx + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const acName = clean(row[idx.acName]);
+    if (!acName) continue;
+    const rec = {
+      region: clean(row[idx.region]),
+      district: clean(row[idx.district]),
+      acNo: num(row[idx.acNo]),
+      acName,
+      halkaCoordinator: clean(row[idx.coordinator]),
+      halkaIncharge: clean(row[idx.incharge]),
+      leaderInvolved: clean(row[idx.leader]),
+      issueSummary: clean(row[idx.issueSummary]),
+      brief: clean(row[idx.brief]),
+      politicalActionable: clean(row[idx.actionable]),
+      category: idx.category > -1 ? clean(row[idx.category]) : "",
+    };
+    rec.category = categorise(rec);
+    rec.inchargeVacant = isVacant(rec.halkaIncharge);
+    rec.coordinatorVacant = isVacant(rec.halkaCoordinator);
+    out.push(rec);
+  }
+  return out;
+}
+
+router.get("/interventions", async (req, res) => {
+  try {
+    if (!canView(req)) return res.status(403).json({ error: "Not authorised to view dashboards." });
+    const rows = await readTab(INTERVENTIONS_TAB, {
+      spreadsheetId: process.env.INTERVENTIONS_SHEET_ID,
+      keyFile: process.env.INTERVENTIONS_KEY_FILE,
+      force: req.query.refresh === "1",
+    });
+    const records = parseInterventions(rows);
+    res.json({ records, updatedAt: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
