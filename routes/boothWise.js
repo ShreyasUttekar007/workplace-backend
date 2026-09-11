@@ -25,6 +25,7 @@ const isUploadAdmin = (req) =>
 // TODO: add the login emails for Shalini, Anurag, Robbin, Rajvardhan Chauhan.
 const MANAGER_EMAILS = [
   "pardhasaradhi@showtimeconsulting.in",
+  "faisalgani@showtimeconsulting.in",
   // "shalini@showtimeconsulting.in",
   // "anurag@showtimeconsulting.in",
   // "robbin@showtimeconsulting.in",
