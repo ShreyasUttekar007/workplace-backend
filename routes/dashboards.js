@@ -6,7 +6,7 @@ const { readTab, clearCache } = require("../utils/googleSheets");
 router.use(authenticateUser);
 
 // Directors + reporting managers: full access to every dashboard.
-const DASHBOARD_EMAILS = [
+const DASHBOARD_EMAILS_RAW = [
   "anuragsaxena@showtimeconsulting.in",
   "pardhasaradhi@showtimeconsulting.in",
   "rs@showtimeconsulting.in",
@@ -19,11 +19,16 @@ const DASHBOARD_EMAILS = [
 // Additional viewers for the Leadership Dashboards hub + Caste Census only.
 // (To give someone the Interventions dashboard too, move their address up into
 //  DASHBOARD_EMAILS instead.)
-const CASTE_VIEWER_EMAILS = [
+const CASTE_VIEWER_EMAILS_RAW = [
   // (empty - add an address here for hub + Caste Census access only)
 ];
 
-const emailOf = (req) => (req.user?.email || "").trim().toLowerCase();
+// normalise hard: trim, lowercase, strip any surrounding quotes/spaces
+const norm = (v) => String(v == null ? "" : v).replace(/["'\s]/g, "").toLowerCase();
+const DASHBOARD_EMAILS = DASHBOARD_EMAILS_RAW.map((e) => e.toLowerCase());
+const CASTE_VIEWER_EMAILS = CASTE_VIEWER_EMAILS_RAW.map((e) => e.toLowerCase());
+
+const emailOf = (req) => norm(req.user?.email);
 const isAdmin = (req) => (req.user?.roles || []).includes("admin");
 
 // Hub + Caste Census access
