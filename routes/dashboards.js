@@ -5,6 +5,7 @@ const { readTab, clearCache } = require("../utils/googleSheets");
 
 router.use(authenticateUser);
 
+// Directors + reporting managers: full access to every dashboard.
 const DASHBOARD_EMAILS = [
   "anuragsaxena@showtimeconsulting.in",
   "pardhasaradhi@showtimeconsulting.in",
@@ -12,12 +13,28 @@ const DASHBOARD_EMAILS = [
   "khushboo@showtimeconsulting.in",
   "sonkar.shalini@showtimeconsulting.in",
   "rajvardhan@showtimeconsulting.in",
+  "faisalgani@showtimeconsulting.in",
 ];
-const canView = (req) => {
-  const email = (req.user?.email || "").trim().toLowerCase();
-  const roles = req.user?.roles || [];
-  return DASHBOARD_EMAILS.includes(email) || roles.includes("admin");
-};
+
+// Additional viewers for the Leadership Dashboards hub + Caste Census only.
+// (To give someone the Interventions dashboard too, move their address up into
+//  DASHBOARD_EMAILS instead.)
+const CASTE_VIEWER_EMAILS = [
+  // (empty - add an address here for hub + Caste Census access only)
+];
+
+const emailOf = (req) => (req.user?.email || "").trim().toLowerCase();
+const isAdmin = (req) => (req.user?.roles || []).includes("admin");
+
+// Hub + Caste Census access
+const canView = (req) =>
+  DASHBOARD_EMAILS.includes(emailOf(req)) ||
+  CASTE_VIEWER_EMAILS.includes(emailOf(req)) ||
+  isAdmin(req);
+
+// Interventions dashboard is limited to the core directors/managers list
+const canViewInterventions = (req) =>
+  DASHBOARD_EMAILS.includes(emailOf(req)) || isAdmin(req);
 
 const CASTE_TAB = process.env.CASTE_CENSUS_TAB || "Caste census daily update";
 
@@ -267,7 +284,7 @@ function parseInterventions(rows) {
 
 router.get("/interventions", async (req, res) => {
   try {
-    if (!canView(req)) return res.status(403).json({ error: "Not authorised to view dashboards." });
+    if (!canViewInterventions(req)) return res.status(403).json({ error: "Not authorised to view dashboards." });
     const rows = await readTab(INTERVENTIONS_TAB, {
       spreadsheetId: process.env.INTERVENTIONS_SHEET_ID,
       keyFile: process.env.INTERVENTIONS_KEY_FILE,
