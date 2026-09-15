@@ -22,13 +22,45 @@ router.use(authenticateUser);
 //  - Punjab admin/mod/state: all Punjab.
 //  - Punjab Zonal/PCM: only their mapped regions/districts/ACs.
 //  - Punjab user with no mapping: only their own records.
-function punjabAwareStateScope(req) {
+// Emails of everyone who reports to this user (direct reports, primary or
+// secondary reporting manager). Used so a reporting manager can see the meetings
+// recorded by their team, not just their own.
+async function reporteeEmails(email) {
+  const me = String(email || "").trim();
+  if (!me) return [];
+  try {
+    const rx = new RegExp(`^${me.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+    const team = await User.find(
+      { $or: [{ reportingManagerEmail: rx }, { secondaryReportingManagerEmail: rx }] },
+      "email"
+    ).lean();
+    return team.map((u) => (u.email || "").trim()).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+// Build the "own records" filter, widened to include the caller's reportees.
+async function ownOrTeamFilter(email) {
+  const team = await reporteeEmails(email);
+  if (!team.length) return { createdByEmail: email };
+  // case-insensitive match on the caller + each reportee
+  const all = [email, ...team];
+  return {
+    createdByEmail: {
+      $in: all.map((e) => new RegExp(`^${String(e).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i")),
+    },
+  };
+}
+
+async function punjabAwareStateScope(req) {
   const userState = (req.user && req.user.location) || "";
   const roles = (req.user && req.user.roles) || [];
   const email = (req.user && req.user.email) || "__none__";
 
-  // A PCM must see ONLY their own meeting records — never other PCMs' records in
-  // the same PC/AC/district. Zonal / State Lead / admin keep their wider view.
+  // A PCM sees their OWN records — plus, if they are a reporting manager, the
+  // records created by their reportees. Zonal / State Lead / admin keep their
+  // wider geographic view.
   const roleStrs = (Array.isArray(roles) ? roles : []).map(String);
   const isPcm =
     roleStrs.includes("PCM") &&
@@ -36,24 +68,24 @@ function punjabAwareStateScope(req) {
     !roleStrs.includes("State Lead");
 
   if (userState === "Punjab") {
-    if (isPcm) return { state: "Punjab", createdByEmail: email };
+    if (isPcm) return { state: "Punjab", ...(await ownOrTeamFilter(email)) };
     const sc = punjabGeo.punjabScope(roles);
     if (sc.mode === "all") return { state: "Punjab" };
     if (sc.mode === "geo") return { state: "Punjab", ...sc.filter };
-    return { state: "Punjab", createdByEmail: email };
+    return { state: "Punjab", ...(await ownOrTeamFilter(email)) };
   }
 
-  // Andhra Pradesh: Zonal -> zone, PCM -> own records, State Lead -> zones,
-  // admin/mod/state -> all AP, unmapped -> own only. (MoM AC field = location.)
+  // Andhra Pradesh: Zonal -> zone, PCM -> own + team, State Lead -> zones,
+  // admin/mod/state -> all AP, unmapped -> own + team. (MoM AC field = location.)
   if (userState === "Andhra Pradesh") {
-    if (isPcm) return { state: "Andhra Pradesh", createdByEmail: email };
+    if (isPcm) return { state: "Andhra Pradesh", ...(await ownOrTeamFilter(email)) };
     const sc = apScope(roles);
     if (sc.mode === "all") return { state: "Andhra Pradesh" };
     if (sc.mode === "geo") {
       const f = apOrFilter(sc, { zone: "zone", pc: "pc", ac: "location", district: "district" });
       return { state: "Andhra Pradesh", ...(f || {}) };
     }
-    return { state: "Andhra Pradesh", createdByEmail: email };
+    return { state: "Andhra Pradesh", ...(await ownOrTeamFilter(email)) };
   }
 
   return { state: { $ne: "Punjab" } };
@@ -187,7 +219,7 @@ router.get("/all-meetings", async (req, res) => {
     // State isolation: Punjab users see only Punjab meetings; everyone else
     // sees everything EXCEPT Punjab (so the pilot data stays separate). This
     // leaves the existing Maharashtra/AP/Bengal/UP experience unchanged.
-    const stateScope = punjabAwareStateScope(req);
+    const stateScope = await punjabAwareStateScope(req);
 
     // MomFormat (small collection) — always load all (optionally ranged).
     const fmt = await MomFormat.find(
@@ -274,7 +306,7 @@ router.get("/all-meetings", async (req, res) => {
 router.get("/summary", async (req, res) => {
   try {
     const { fromDate, toDate } = req.query;
-    const stateScope = punjabAwareStateScope(req);
+    const stateScope = await punjabAwareStateScope(req);
     const q = { ...stateScope };
     if (fromDate && toDate) q.meetingDate = { $gte: fromDate, $lte: toDate };
     const recs = await MomFormat.find(q);
