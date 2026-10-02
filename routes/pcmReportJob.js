@@ -305,7 +305,34 @@ const sendPcmReport = async () => {
   }
 };
 
-// Every day at 8:00 PM IST
-cron.schedule("0 20 * * *", sendPcmReport, { timezone: "Asia/Kolkata" });
+// ---- Automated email paused until 10 October 2026 ----
+// Set to "" (empty string) to resume the daily mail immediately, or change the
+// date to extend the pause. The "Email Report Now" button is NOT affected and
+// keeps working throughout.
+const AUTO_EMAIL_PAUSED_UNTIL = "2026-10-10"; // resumes ON this date
+
+const autoEmailPaused = () => {
+  if (!AUTO_EMAIL_PAUSED_UNTIL) return false;
+  // compare in IST so the switch happens at the right local day
+  const now = new Date();
+  const ist = new Date(now.getTime() + (330 + now.getTimezoneOffset()) * 60000);
+  const today = ist.toISOString().split("T")[0];
+  return today < AUTO_EMAIL_PAUSED_UNTIL;
+};
+
+// Every day at 8:00 PM IST (skipped while the pause window is active)
+cron.schedule(
+  "0 20 * * *",
+  async () => {
+    if (autoEmailPaused()) {
+      console.log(
+        `PCM report: automated email paused until ${AUTO_EMAIL_PAUSED_UNTIL} - skipping tonight's send.`
+      );
+      return;
+    }
+    await sendPcmReport();
+  },
+  { timezone: "Asia/Kolkata" }
+);
 
 module.exports = { sendPcmReport };
