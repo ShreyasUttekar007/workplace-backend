@@ -187,6 +187,22 @@ router.get("/caste-census", async (req, res) => {
   }
 });
 
+// Permission check for the embedded Alliance & Party-wise Performance dashboard.
+// The dashboard itself is hosted externally, so the portal cannot filter its
+// contents - this simply confirms the signed-in user is allowed to open it, the
+// same list that governs the other leadership dashboards.
+router.get("/alliance-access", async (req, res) => {
+  if (!canView(req)) {
+    return res.status(403).json({ error: "Not authorised to view this dashboard." });
+  }
+  res.json({
+    allowed: true,
+    url:
+      process.env.ALLIANCE_DASHBOARD_URL ||
+      "https://punjaballiancechangedashboardimpact.vercel.app/",
+  });
+});
+
 router.post("/refresh", async (req, res) => {
   if (!canView(req)) return res.status(403).json({ error: "Not authorised." });
   clearCache();
