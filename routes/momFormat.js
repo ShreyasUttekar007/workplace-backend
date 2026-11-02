@@ -7,7 +7,7 @@ const User = require("../models/User");
 const authenticateUser = require("../middleware/authenticateUser");
 const punjabGeo = require("../utils/punjabGeo");
 const { apScope, apOrFilter } = require("../utils/apScope");
-const { summarise, polishWithLLM } = require("../utils/momSummarizer");
+const { summarise } = require("../utils/momSummarizer");
 const multer = require("multer");
 const AWS = require("aws-sdk");
 
@@ -444,13 +444,11 @@ router.get("/meta-summary", async (req, res) => {
     // Same permission scope as the dashboard, so nobody sees more here.
     const scope = await punjabAwareStateScope(req);
     const q = { ...scope };
-
     if (zone) q.zone = zone;
     if (pc) q.pc = pc;
     if (ac) q.location = ac;
 
-    // meetingDate is stored as a YYYY-MM-DD string; fall back to createdAt for
-    // older records that never captured it.
+    // meetingDate is a YYYY-MM-DD string; fall back to createdAt for older rows.
     if (from || to) {
       const dateStr = {};
       if (from) dateStr.$gte = from;
@@ -458,11 +456,12 @@ router.get("/meta-summary", async (req, res) => {
       const created = {};
       if (from) created.$gte = new Date(`${from}T00:00:00+05:30`);
       if (to) created.$lte = new Date(`${to}T23:59:59.999+05:30`);
-      const dateOr = [
-        { meetingDate: dateStr },
-        { meetingDate: { $in: ["", null] }, createdAt: created },
-      ];
-      q.$and = [...(q.$and || []), { $or: dateOr }];
+      q.$and = [...(q.$and || []), {
+        $or: [
+          { meetingDate: dateStr },
+          { meetingDate: { $in: ["", null] }, createdAt: created },
+        ],
+      }];
     }
 
     const records = await MomFormat.find(q)
@@ -473,8 +472,7 @@ router.get("/meta-summary", async (req, res) => {
       )
       .lean();
 
-    let summary = summarise(records);
-    summary = await polishWithLLM(summary); // no-op unless GEMINI_API_KEY is set
+    const summary = await summarise(records, { zone, pc, ac, from, to });
 
     res.status(200).json({
       filters: { zone: zone || "", pc: pc || "", ac: ac || "", from: from || "", to: to || "" },

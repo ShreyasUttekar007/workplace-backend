@@ -1,15 +1,19 @@
 /**
- * MoM summariser — runs entirely on your own server.
+ * MoM summariser.
  *
- * No external AI service, no API key, no cost, and no meeting content ever
- * leaves your infrastructure. It classifies every discussion point / actionable
- * into an issue category, then produces an extractive summary per category:
- * recurring themes (weighted keywords), the most representative statements, the
- * actionables raised, and who recorded what.
+ * TWO LAYERS:
+ *  1. Local extraction (always runs): classifies every discussion point /
+ *     actionable / remark into an issue category and pulls out themes,
+ *     representative statements, actionables and PCM attribution. Free, instant,
+ *     nothing leaves the server.
+ *  2. LLM summarisation (runs when a key is configured): sends the condensed,
+ *     de-duplicated text of each category to a free-tier model and asks for a
+ *     tight executive summary. Falls back to layer 1 on any error or timeout.
  *
- * OPTIONAL: if you later set GEMINI_API_KEY in the backend .env, each category's
- * extractive digest is sent for a short narrative rewrite. It is OFF unless that
- * key exists, and it falls back silently to the local summary on any failure.
+ * PROVIDERS (set ONE in the backend .env):
+ *     GROQ_API_KEY=...     -> Groq, llama-3.3-70b-versatile   (recommended: fast, free)
+ *     GEMINI_API_KEY=...   -> Google AI Studio, gemini-2.0-flash
+ * Optional overrides: GROQ_MODEL, GEMINI_MODEL, MOM_AI_DISABLED=1
  */
 
 const CATEGORIES = [
@@ -47,7 +51,7 @@ const CATEGORIES = [
   ]],
 ];
 
-const STOP = new Set(`a an the and or but if then than that this these those of in on at to for with by from as is are was were be been being it its it's he she they we you i his her their our your not no yes do does did have has had will would shall should can could may might must about into over under again further once here there when where why how all any both each few more most other some such only own same so too very s t just don now also said say says meeting discussed discussion point points issue issues mr mrs shri smt sri village mandal district`.split(/\s+/));
+const STOP = new Set(`a an the and or but if then than that this these those of in on at to for with by from as is are was were be been being it its he she they we you i his her their our your not no yes do does did have has had will would shall should can could may might must about into over under again further once here there when where why how all any both each few more most other some such only own same so too very just don now also said say says meeting discussed discussion point points issue issues mr mrs shri smt sri village mandal district`.split(/\s+/));
 
 const clean = (v) => String(v == null ? "" : v).replace(/\s+/g, " ").trim();
 
@@ -60,49 +64,35 @@ function categorise(text) {
   return "Other Local Matters";
 }
 
-// Pull every piece of substantive text out of one meeting record.
 function extractItems(rec) {
   const items = [];
   const push = (text, kind, extra = {}) => {
     const t = clean(text);
     if (t.length < 4) return;
     items.push({
-      text: t,
-      kind,
+      text: t, kind,
       pcm: clean(rec.createdByName) || clean(rec.createdByEmail) || "Unknown",
-      pcmEmail: clean(rec.createdByEmail),
-      date: clean(rec.meetingDate) || (rec.createdAt ? new Date(rec.createdAt).toISOString().slice(0, 10) : ""),
-      zone: clean(rec.zone),
-      pc: clean(rec.pc),
-      ac: clean(rec.location),
-      district: clean(rec.district),
-      respondent: clean(rec.respondentName),
-      designation: clean(rec.respondentDesignation),
+      date: clean(rec.meetingDate) ||
+        (rec.createdAt ? new Date(rec.createdAt).toISOString().slice(0, 10) : ""),
+      zone: clean(rec.zone), pc: clean(rec.pc), ac: clean(rec.location),
+      respondent: clean(rec.respondentName), designation: clean(rec.respondentDesignation),
       ...extra,
     });
   };
-
-  (rec.discussionPoints || []).forEach((d) => {
-    push([clean(d.point), clean(d.details)].filter(Boolean).join(" — "), "discussion");
-  });
-  (rec.stcActionables || []).forEach((a) => {
-    push(clean(a.issue), "stc_issue", { actionable: clean(a.actionable), timeline: clean(a.timeline) });
-  });
-  (rec.leaderActionables || []).forEach((a) => {
+  (rec.discussionPoints || []).forEach((d) =>
+    push([clean(d.point), clean(d.details)].filter(Boolean).join(" — "), "discussion"));
+  (rec.stcActionables || []).forEach((a) =>
+    push(clean(a.issue), "stc_issue", { actionable: clean(a.actionable), timeline: clean(a.timeline) }));
+  (rec.leaderActionables || []).forEach((a) =>
     push(clean(a.issue), "leader_issue", {
-      actionable: clean(a.actionable),
-      timeline: clean(a.timeline),
-      partyLeader: clean(a.partyLeader),
-    });
-  });
+      actionable: clean(a.actionable), timeline: clean(a.timeline), partyLeader: clean(a.partyLeader),
+    }));
   if (clean(rec.remarks)) push(rec.remarks, "remark");
   return items;
 }
 
-// Weighted keyword extraction (term frequency, stop-worded, bigrams favoured).
 function themesOf(texts, limit = 8) {
-  const uni = new Map();
-  const bi = new Map();
+  const uni = new Map(), bi = new Map();
   texts.forEach((t) => {
     const words = String(t).toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
       .filter((w) => w.length > 3 && !STOP.has(w));
@@ -116,78 +106,194 @@ function themesOf(texts, limit = 8) {
     ...[...bi.entries()].filter(([, c]) => c > 1).map(([k, c]) => [k, c * 2.5]),
     ...[...uni.entries()].filter(([, c]) => c > 1).map(([k, c]) => [k, c]),
   ].sort((a, b) => b[1] - a[1]);
-
   const out = [];
   for (const [term, score] of scored) {
     if (out.length >= limit) break;
-    // skip a unigram already covered by a chosen bigram
     if (out.some((o) => o.term.includes(term) || term.includes(o.term))) continue;
     out.push({ term, weight: Math.round(score) });
   }
   return out;
 }
 
-// Pick the statements that best represent the group (highest theme coverage).
 function representative(items, themes, limit = 5) {
   const terms = themes.map((t) => t.term);
   return items
-    .map((it) => {
-      const low = it.text.toLowerCase();
-      const score = terms.reduce((a, t) => a + (low.includes(t) ? 1 : 0), 0)
-        + Math.min(it.text.length / 160, 1.5);
-      return { ...it, _score: score };
-    })
+    .map((it) => ({
+      ...it,
+      _score: terms.reduce((a, t) => a + (it.text.toLowerCase().includes(t) ? 1 : 0), 0)
+        + Math.min(it.text.length / 160, 1.5),
+    }))
     .sort((a, b) => b._score - a._score)
     .slice(0, limit)
     .map(({ _score, ...rest }) => rest);
 }
 
+// De-duplicate near-identical lines so the model sees signal, not repetition.
+function dedupe(texts) {
+  const seen = new Set(), out = [];
+  for (const t of texts) {
+    const key = t.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).slice(0, 12).join(" ");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
+/* ----------------------------- LLM providers ----------------------------- */
+
+const AI_TIMEOUT_MS = Number(process.env.MOM_AI_TIMEOUT_MS || 30000);
+
+function aiProvider() {
+  if (process.env.MOM_AI_DISABLED === "1") return null;
+  if (process.env.GROQ_API_KEY) return "groq";
+  if (process.env.GEMINI_API_KEY) return "gemini";
+  return null;
+}
+
+async function callModel(prompt) {
+  const provider = aiProvider();
+  if (!provider || typeof fetch !== "function") return null;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
+  try {
+    if (provider === "groq") {
+      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+          temperature: 0.2,
+          max_tokens: 900,
+          messages: [
+            { role: "system", content: "You are a political field-operations analyst. Write tight, factual, neutral briefings. Never invent details that are not in the input." },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+      const j = await r.json();
+      return j?.choices?.[0]?.message?.content || null;
+    }
+
+    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 900 },
+        }),
+      }
+    );
+    const j = await r.json();
+    return j?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Models sometimes wrap JSON in prose or fences - recover it defensively.
+function parseJson(txt) {
+  if (!txt) return null;
+  const cleaned = String(txt).replace(/```json|```/g, "").trim();
+  try { return JSON.parse(cleaned); } catch (e) { /* keep trying */ }
+  const a = cleaned.indexOf("{"), b = cleaned.lastIndexOf("}");
+  if (a > -1 && b > a) {
+    try { return JSON.parse(cleaned.slice(a, b + 1)); } catch (e) { /* give up */ }
+  }
+  return null;
+}
+
+async function summariseCategoryWithAI(cat, items) {
+  const lines = dedupe(items.map((i) =>
+    i.actionable ? `${i.text} [action: ${i.actionable}${i.timeline ? `, by ${i.timeline}` : ""}]` : i.text
+  )).slice(0, 60).join("\n- ");
+
+  const prompt =
+`Field meeting points recorded by party coordinators (PCMs) under the category "${cat}".
+
+- ${lines}
+
+Return ONLY valid JSON, no commentary, in this exact shape:
+{
+  "summary": "3-4 sentences summarising what the field is reporting in this category. Neutral, specific, no filler.",
+  "keyIssues": ["4-6 short phrases naming the distinct problems raised"],
+  "recommendedActions": ["2-4 concrete next steps implied by the points"],
+  "severity": "High" | "Medium" | "Low"
+}`;
+
+  const parsed = parseJson(await callModel(prompt));
+  if (!parsed || !parsed.summary) return null;
+  return {
+    summary: clean(parsed.summary),
+    keyIssues: Array.isArray(parsed.keyIssues) ? parsed.keyIssues.map(clean).filter(Boolean).slice(0, 6) : [],
+    recommendedActions: Array.isArray(parsed.recommendedActions)
+      ? parsed.recommendedActions.map(clean).filter(Boolean).slice(0, 4) : [],
+    severity: ["High", "Medium", "Low"].includes(parsed.severity) ? parsed.severity : "Medium",
+  };
+}
+
+async function executiveSummary(categories, totals, filters) {
+  const digest = categories
+    .map((c) => `${c.category} (${c.count} points): ${c.aiSummary || c.narrative}`)
+    .join("\n");
+  const scope = [filters.zone, filters.pc, filters.ac].filter(Boolean).join(" / ") || "all mapped areas";
+  const prompt =
+`Field meeting intelligence for ${scope}: ${totals.meetings} meetings, ${totals.points} points, ${totals.pcms} coordinators.
+
+${digest}
+
+Write a 4-5 sentence EXECUTIVE SUMMARY for senior leadership: what dominates the field right now, what is improving or deteriorating, and what needs attention first. Plain prose, no headings, no bullet points, no invented facts.`;
+  const txt = await callModel(prompt);
+  return txt ? clean(txt) : "";
+}
+
+/* ------------------------------ assembly ------------------------------ */
+
 function buildCategorySummary(name, items) {
   const texts = items.map((i) => i.text);
   const themes = themesOf(texts);
-  const actionables = items
-    .filter((i) => i.actionable)
-    .map((i) => ({
-      issue: i.text, actionable: i.actionable, timeline: i.timeline || "",
-      partyLeader: i.partyLeader || "", pcm: i.pcm, ac: i.ac,
-    }));
-
+  const actionables = items.filter((i) => i.actionable).map((i) => ({
+    issue: i.text, actionable: i.actionable, timeline: i.timeline || "",
+    partyLeader: i.partyLeader || "", pcm: i.pcm, ac: i.ac,
+  }));
   const byPcm = {};
   items.forEach((i) => { byPcm[i.pcm] = (byPcm[i.pcm] || 0) + 1; });
-
   const acs = [...new Set(items.map((i) => i.ac).filter(Boolean))];
   const topThemes = themes.slice(0, 4).map((t) => t.term).join(", ");
-
-  // A plain-language digest assembled from the aggregates.
-  const narrative =
-    `${items.length} point${items.length === 1 ? "" : "s"} recorded across ` +
-    `${acs.length || 1} assembly constituenc${acs.length === 1 ? "y" : "ies"}` +
-    `${topThemes ? `, centring on ${topThemes}` : ""}. ` +
-    `${actionables.length} actionable${actionables.length === 1 ? "" : "s"} raised. ` +
-    `Reported by ${Object.keys(byPcm).length} PCM${Object.keys(byPcm).length === 1 ? "" : "s"}.`;
 
   return {
     category: name,
     count: items.length,
-    narrative,
+    narrative:
+      `${items.length} point${items.length === 1 ? "" : "s"} across ` +
+      `${acs.length || 1} assembly constituenc${acs.length === 1 ? "y" : "ies"}` +
+      `${topThemes ? `, centring on ${topThemes}` : ""}. ` +
+      `${actionables.length} actionable${actionables.length === 1 ? "" : "s"} raised.`,
     themes,
     highlights: representative(items, themes),
     actionables: actionables.slice(0, 12),
-    byPcm: Object.entries(byPcm).map(([pcm, count]) => ({ pcm, count }))
-      .sort((a, b) => b.count - a.count),
+    byPcm: Object.entries(byPcm).map(([pcm, count]) => ({ pcm, count })).sort((a, b) => b.count - a.count),
     acs,
+    _items: items,
   };
 }
 
-function summarise(records) {
+function summariseLocal(records) {
   const all = [];
   records.forEach((r) => all.push(...extractItems(r)));
-
   const buckets = {};
-  all.forEach((it) => {
-    const c = categorise(it.text);
-    (buckets[c] = buckets[c] || []).push(it);
-  });
+  all.forEach((it) => { const c = categorise(it.text); (buckets[c] = buckets[c] || []).push(it); });
 
   const categories = Object.entries(buckets)
     .map(([name, items]) => buildCategorySummary(name, items))
@@ -201,11 +307,8 @@ function summarise(records) {
 
   return {
     totals: {
-      meetings: records.length,
-      points: all.length,
-      categories: categories.length,
-      actionables: all.filter((i) => i.actionable).length,
-      pcms: Object.keys(pcmTotals).length,
+      meetings: records.length, points: all.length, categories: categories.length,
+      actionables: all.filter((i) => i.actionable).length, pcms: Object.keys(pcmTotals).length,
     },
     pcmTotals: Object.entries(pcmTotals).map(([pcm, meetings]) => ({ pcm, meetings }))
       .sort((a, b) => b.meetings - a.meetings),
@@ -213,37 +316,34 @@ function summarise(records) {
   };
 }
 
-/**
- * Optional narrative polish via Gemini's free tier. Enabled ONLY when
- * GEMINI_API_KEY is set; otherwise the local summary is returned untouched.
- */
-async function polishWithLLM(summary) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key || typeof fetch !== "function") return summary;
-  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-  try {
-    for (const cat of summary.categories) {
-      const bullets = cat.highlights.map((h) => `- ${h.text}`).join("\n").slice(0, 4000);
-      const prompt =
-        `Summarise these field-meeting points under "${cat.category}" in 2-3 neutral ` +
-        `sentences for a political operations report. No preamble, no bullet points.\n\n${bullets}`;
-      const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
-      const j = await r.json();
-      const txt = j?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (txt) cat.narrative = clean(txt);
-    }
-    summary.aiPolished = true;
-  } catch (e) {
-    summary.aiPolished = false;
+async function summarise(records, filters = {}) {
+  const base = summariseLocal(records);
+  const provider = aiProvider();
+  base.ai = { enabled: !!provider, provider: provider || "none", ok: false };
+
+  if (!provider || !base.categories.length) {
+    base.categories.forEach((c) => { delete c._items; });
+    return base;
   }
-  return summary;
+
+  let any = false;
+  for (const cat of base.categories) {
+    const ai = await summariseCategoryWithAI(cat.category, cat._items);
+    if (ai) {
+      cat.aiSummary = ai.summary;
+      cat.keyIssues = ai.keyIssues;
+      cat.recommendedActions = ai.recommendedActions;
+      cat.severity = ai.severity;
+      any = true;
+    }
+    delete cat._items;
+  }
+
+  if (any) {
+    base.executiveSummary = await executiveSummary(base.categories, base.totals, filters);
+  }
+  base.ai.ok = any;
+  return base;
 }
 
-module.exports = { summarise, polishWithLLM, categorise };
+module.exports = { summarise, categorise, aiProvider };
