@@ -223,6 +223,7 @@ router.post("/ask", async (req, res) => {
     ).join("\n");
 
     let answer = "";
+    let aiError = "";
     if (aiProvider()) {
       const prompt =
 `You are analysing field meeting records recorded by party coordinators (PCMs).
@@ -239,12 +240,15 @@ Answer the question using ONLY these records. Rules:
 - Be specific and concise: 4-8 sentences, or short bullets if listing issues.
 - Never invent names, numbers or events that are not above.`;
       answer = clean(await callModel(prompt) || "");
+      if (!answer) aiError = callModel.lastError || "The AI service returned an empty response.";
     }
 
     res.json({
       question,
       answer,
       aiEnabled: !!aiProvider(),
+      aiProvider: aiProvider() || "none",
+      aiError,
       mode, // "atlas" or "memory"
       sources: results.map((r, i) => ({
         n: i + 1,

@@ -152,6 +152,7 @@ function aiProvider() {
 }
 
 async function callModel(prompt) {
+  callModel.lastError = "";
   const provider = aiProvider();
   if (!provider || typeof fetch !== "function") return null;
 
@@ -176,7 +177,13 @@ async function callModel(prompt) {
           ],
         }),
       });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        callModel.lastError = `Groq ${r.status}: ${j?.error?.message || r.statusText || "request failed"}`;
+        console.warn("[AI]", callModel.lastError);
+        return null;
+      }
+      callModel.lastError = "";
       return j?.choices?.[0]?.message?.content || null;
     }
 
@@ -193,9 +200,19 @@ async function callModel(prompt) {
         }),
       }
     );
-    const j = await r.json();
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      callModel.lastError = `Gemini ${r.status}: ${j?.error?.message || r.statusText || "request failed"}`;
+      console.warn("[AI]", callModel.lastError);
+      return null;
+    }
+    callModel.lastError = "";
     return j?.candidates?.[0]?.content?.parts?.[0]?.text || null;
   } catch (e) {
+    callModel.lastError = e.name === "AbortError"
+      ? `AI request timed out after ${AI_TIMEOUT_MS / 1000}s`
+      : `AI request failed: ${e.message}`;
+    console.warn("[AI]", callModel.lastError);
     return null;
   } finally {
     clearTimeout(timer);
