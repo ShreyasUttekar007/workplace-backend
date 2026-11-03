@@ -10,7 +10,11 @@ const { callModel, aiProvider } = require("../utils/momSummarizer");
 router.use(authenticateUser);
 
 const clean = (v) => String(v == null ? "" : v).replace(/\s+/g, " ").trim();
-const isAdmin = (req) => (req.user?.roles || []).includes("admin");
+// Index maintenance: admin or mod (the same roles that manage other portal data).
+const isAdmin = (req) => {
+  const r = req.user?.roles || [];
+  return r.includes("admin") || r.includes("mod");
+};
 
 /* ---------------------------- chunk building ---------------------------- */
 
@@ -79,7 +83,7 @@ router.get("/status", async (req, res) => {
  */
 router.post("/reindex", async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: "Admin only." });
+    if (!isAdmin(req)) return res.status(403).json({ error: "Admin or mod only." });
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const rebuild = req.query.rebuild === "1";
 
