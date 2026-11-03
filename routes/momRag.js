@@ -5,7 +5,7 @@ const MomFormat = require("../models/MomFormat");
 const MomEmbedding = require("../models/MomEmbedding");
 const { embed, cosine, MODEL_NAME } = require("../utils/embeddings");
 const { punjabAwareStateScope } = require("../utils/momScope");
-const { callModel, aiProvider } = require("../utils/momSummarizer");
+const { callModel, aiProvider, activeModel } = require("../utils/momSummarizer");
 
 router.use(authenticateUser);
 
@@ -248,6 +248,7 @@ Answer the question using ONLY these records. Rules:
       answer,
       aiEnabled: !!aiProvider(),
       aiProvider: aiProvider() || "none",
+      aiModel: answer ? activeModel() : "",
       aiError,
       mode, // "atlas" or "memory"
       sources: results.map((r, i) => ({

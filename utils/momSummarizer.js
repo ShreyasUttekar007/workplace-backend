@@ -11,8 +11,9 @@
  *     tight executive summary. Falls back to layer 1 on any error or timeout.
  *
  * PROVIDERS (set ONE in the backend .env):
- *     GROQ_API_KEY=...     -> Groq, llama-3.3-70b-versatile   (recommended: fast, free)
- *     GEMINI_API_KEY=...   -> Google AI Studio, gemini-2.0-flash
+ *     GROQ_API_KEY=...     -> Groq     (recommended: fast, free)
+ *     GEMINI_API_KEY=...   -> Google AI Studio
+ * The model is AUTO-SELECTED from the provider's live model list (names get retired).
  * Optional overrides: GROQ_MODEL, GEMINI_MODEL, MOM_AI_DISABLED=1
  */
 
@@ -151,63 +152,141 @@ function aiProvider() {
   return null;
 }
 
+/* -------- model selection: discover what the provider actually offers -------- */
+// Providers retire model names regularly, so nothing is hard-wired. A model set
+// in .env always wins; otherwise the live model list is fetched, the best
+// general-purpose chat model is chosen, and the choice is cached. If that model
+// later disappears, the list is re-fetched and the next best is used.
+
+const SYSTEM_PROMPT =
+  "You are a political field-operations analyst. Write tight, factual, neutral briefings. " +
+  "Never invent details that are not in the input.";
+
+// Not chat models (speech, safety classifiers, embeddings, agents) - never pick these.
+const NOT_CHAT = /whisper|guard|tts|playai|distil|embed|vision|audio|speech|compound|moderation|aqa|imagen|veo|learnlm/i;
+
+const GROQ_PREFS = [/llama-3\.3-70b/i, /llama-4.*maverick/i, /llama-4/i, /gpt-oss-120b/i,
+                    /70b/i, /qwen/i, /gpt-oss/i, /llama/i, /mixtral/i, /gemma/i];
+const GEMINI_PREFS = [/gemini-[\d.]+-flash$/i, /gemini-[\d.]+-flash/i, /gemini-[\d.]+-pro/i, /gemini/i];
+
+const modelCache = { groq: "", gemini: "" };
+let lastPicked = "";
+
+function rankModels(ids, prefs) {
+  const usable = ids.filter((id) => id && !NOT_CHAT.test(id));
+  for (const rx of prefs) {
+    const hit = usable.filter((id) => rx.test(id)).sort().reverse(); // newest version first
+    if (hit.length) return hit[0];
+  }
+  return usable[0] || "";
+}
+
+async function discoverModel(provider, exclude) {
+  try {
+    if (provider === "groq") {
+      const r = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+      });
+      const j = await r.json().catch(() => ({}));
+      const ids = (j.data || [])
+        .filter((m) => m.active !== false)
+        .map((m) => m.id)
+        .filter((id) => id !== exclude);
+      return rankModels(ids, GROQ_PREFS);
+    }
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`
+    );
+    const j = await r.json().catch(() => ({}));
+    const ids = (j.models || [])
+      .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+      .map((m) => String(m.name || "").replace(/^models\//, ""))
+      .filter((id) => id !== exclude);
+    return rankModels(ids, GEMINI_PREFS);
+  } catch (e) {
+    return "";
+  }
+}
+
+const looksLikeBadModel = (status, msg) =>
+  status === 404 || (status === 400 && /model/i.test(msg || ""));
+
+async function requestOnce(provider, model, prompt, signal) {
+  if (provider === "groq") {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        max_tokens: 900,
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, msg: j?.error?.message || r.statusText,
+             text: j?.choices?.[0]?.message?.content || "" };
+  }
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 900 },
+      }),
+    }
+  );
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, msg: j?.error?.message || r.statusText,
+           text: j?.candidates?.[0]?.content?.parts?.[0]?.text || "" };
+}
+
 async function callModel(prompt) {
   callModel.lastError = "";
   const provider = aiProvider();
   if (!provider || typeof fetch !== "function") return null;
 
+  const label = provider === "groq" ? "Groq" : "Gemini";
+  const envModel = provider === "groq" ? process.env.GROQ_MODEL : process.env.GEMINI_MODEL;
+
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
   try {
-    if (provider === "groq") {
-      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-          temperature: 0.2,
-          max_tokens: 900,
-          messages: [
-            { role: "system", content: "You are a political field-operations analyst. Write tight, factual, neutral briefings. Never invent details that are not in the input." },
-            { role: "user", content: prompt },
-          ],
-        }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        callModel.lastError = `Groq ${r.status}: ${j?.error?.message || r.statusText || "request failed"}`;
-        console.warn("[AI]", callModel.lastError);
-        return null;
-      }
-      callModel.lastError = "";
-      return j?.choices?.[0]?.message?.content || null;
-    }
-
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 900 },
-        }),
-      }
-    );
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      callModel.lastError = `Gemini ${r.status}: ${j?.error?.message || r.statusText || "request failed"}`;
+    // 1) .env choice  2) cached discovery  3) discover now
+    let model = envModel || modelCache[provider] || (await discoverModel(provider));
+    if (!model) {
+      callModel.lastError = `${label}: could not find an available chat model for this API key.`;
       console.warn("[AI]", callModel.lastError);
       return null;
     }
-    callModel.lastError = "";
-    return j?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+
+    let res = await requestOnce(provider, model, prompt, ctrl.signal);
+
+    // The model was retired or is not on this account -> pick another and retry once.
+    if (!res.ok && looksLikeBadModel(res.status, res.msg)) {
+      const next = await discoverModel(provider, model);
+      if (next && next !== model) {
+        console.warn(`[AI] ${label} model "${model}" unavailable - switching to "${next}"`);
+        model = next;
+        res = await requestOnce(provider, model, prompt, ctrl.signal);
+      }
+    }
+
+    if (!res.ok) {
+      callModel.lastError = `${label} ${res.status}: ${res.msg || "request failed"}` +
+        (envModel ? ` (model "${envModel}" is set in .env - remove GROQ_MODEL/GEMINI_MODEL to auto-select)` : "");
+      console.warn("[AI]", callModel.lastError);
+      return null;
+    }
+
+    if (!envModel) modelCache[provider] = model;
+    lastPicked = `${provider}:${model}`;
+    return res.text || null;
   } catch (e) {
     callModel.lastError = e.name === "AbortError"
       ? `AI request timed out after ${AI_TIMEOUT_MS / 1000}s`
@@ -217,6 +296,11 @@ async function callModel(prompt) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Which provider:model answered last (shown in the UI for transparency). */
+function activeModel() {
+  return lastPicked;
 }
 
 // Models sometimes wrap JSON in prose or fences - recover it defensively.
@@ -363,4 +447,4 @@ async function summarise(records, filters = {}) {
   return base;
 }
 
-module.exports = { summarise, categorise, aiProvider, callModel };
+module.exports = { summarise, categorise, aiProvider, callModel, activeModel };
