@@ -44,6 +44,7 @@ const boothWiseRoutes = require("./routes/boothWise");
 const dashboardRoutes = require("./routes/dashboards");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
+const momRagRoutes = require("./routes/momRag");
 const MongoDBStore = require("connect-mongodb-session")(session);
 const app = express();
 require("./routes/leaveReportJob");
@@ -139,6 +140,7 @@ app.use("/api/neutral-influencer", neutralInfluencerRoutes);
 app.use("/api/candidates-daily-activities", candidatesDailyActivityRoutes);
 app.use("/api/punjab", punjabRoutes);
 app.use("/api/booth-wise", boothWiseRoutes);
+app.use("/api/mom-rag", momRagRoutes);
 app.use("/api/dashboards", dashboardRoutes);
 
 if (process.env.NODE_ENV === "production") {

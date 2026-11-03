@@ -346,4 +346,4 @@ async function summarise(records, filters = {}) {
   return base;
 }
 
-module.exports = { summarise, categorise, aiProvider };
+module.exports = { summarise, categorise, aiProvider, callModel };
