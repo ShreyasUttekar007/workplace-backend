@@ -187,20 +187,76 @@ router.get("/caste-census", async (req, res) => {
   }
 });
 
-// Permission check for the embedded Alliance & Party-wise Performance dashboard.
-// The dashboard itself is hosted externally, so the portal cannot filter its
-// contents - this simply confirms the signed-in user is allowed to open it, the
-// same list that governs the other leadership dashboards.
-router.get("/alliance-access", async (req, res) => {
-  if (!canView(req)) {
-    return res.status(403).json({ error: "Not authorised to view this dashboard." });
+/* ---------------- Embedded (externally hosted) dashboards ----------------
+ * Each externally hosted dashboard is registered here ONCE: its title, URL and
+ * the project it belongs to. The portal page /dashboard-embed/:key asks this
+ * endpoint first and only embeds the dashboard if the signed-in user is allowed.
+ *
+ * To add a dashboard later: add one entry below, plus one card in
+ * DirectorDashboards.js. URLs can be overridden from .env without a code change.
+ *
+ * NOTE: these sites are hosted publicly. This gate controls access THROUGH THE
+ * PORTAL; anyone holding the raw URL can still open it directly. Protect the
+ * source site (e.g. Vercel Deployment Protection) if the data is sensitive.
+ */
+
+// Andhra Pradesh leadership viewers. Starts as the same people as Punjab so
+// nobody gains access by accident - edit this list to give the AP team access.
+const AP_DASHBOARD_EMAILS_RAW = [
+  ...DASHBOARD_EMAILS_RAW,
+];
+const AP_DASHBOARD_EMAILS = AP_DASHBOARD_EMAILS_RAW.map((e) => e.toLowerCase());
+const canViewAP = (req) => AP_DASHBOARD_EMAILS.includes(emailOf(req)) || isAdmin(req);
+
+const PROJECTS = {
+  punjab: { label: "Punjab", hub: "/leadership-dashboards", gate: (req) => canView(req) },
+  ap: { label: "Andhra Pradesh", hub: "/leadership-dashboards-ap", gate: (req) => canViewAP(req) },
+};
+
+const EMBEDS = {
+  alliance: {
+    project: "punjab",
+    title: "Alliance & Party Wise Performance",
+    url: process.env.ALLIANCE_DASHBOARD_URL ||
+      "https://punjaballiancechangedashboardimpact.vercel.app/",
+  },
+  "polling-station-atlas": {
+    project: "punjab",
+    title: "Punjab Polling Station Atlas",
+    url: process.env.POLLING_ATLAS_URL ||
+      "https://punjabboothdashboardimproved.vercel.app/",
+  },
+  "campaign-route-atlas": {
+    project: "punjab",
+    title: "Campaign Route Atlas",
+    url: process.env.ROUTE_ATLAS_URL ||
+      "https://punjab-route-atlas.vercel.app/",
+  },
+  "ap-electoral-mapping": {
+    project: "ap",
+    title: "Andhra Pradesh Electoral Mapping Dashboard – Post SIR 2026",
+    url: process.env.AP_ELECTORAL_MAP_URL ||
+      "https://andhra-pradesh-voter-maps.vercel.app/",
+  },
+};
+
+router.get("/embed-access/:key", async (req, res) => {
+  const d = EMBEDS[req.params.key];
+  if (!d) return res.status(404).json({ error: "Unknown dashboard." });
+  const proj = PROJECTS[d.project];
+  if (!proj.gate(req)) {
+    return res.status(403).json({ error: "Not authorised to view this dashboard.", hub: proj.hub });
   }
   res.json({
-    allowed: true,
-    url:
-      process.env.ALLIANCE_DASHBOARD_URL ||
-      "https://punjaballiancechangedashboardimpact.vercel.app/",
+    allowed: true, key: req.params.key, title: d.title, url: d.url,
+    project: d.project, projectLabel: proj.label, hub: proj.hub,
   });
+});
+
+// Kept for the existing /dashboard-alliance link.
+router.get("/alliance-access", async (req, res) => {
+  if (!canView(req)) return res.status(403).json({ error: "Not authorised to view this dashboard." });
+  res.json({ allowed: true, url: EMBEDS.alliance.url });
 });
 
 router.post("/refresh", async (req, res) => {
