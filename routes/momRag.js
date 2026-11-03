@@ -10,6 +10,7 @@ const { callModel, aiProvider } = require("../utils/momSummarizer");
 router.use(authenticateUser);
 
 const clean = (v) => String(v == null ? "" : v).replace(/\s+/g, " ").trim();
+const EMPTY = "_empty"; // marker for meetings that had no embeddable text
 // Index maintenance: admin or mod (the same roles that manage other portal data).
 const isAdmin = (req) => {
   const r = req.user?.roles || [];
@@ -60,13 +61,14 @@ function chunksFor(rec) {
 // Index status: how much of the corpus is embedded.
 router.get("/status", async (req, res) => {
   try {
-    const [meetings, chunks, indexedMeetings] = await Promise.all([
+    const [meetings, chunks, indexedMeetings, emptyMeetings] = await Promise.all([
       MomFormat.countDocuments({}),
-      MomEmbedding.countDocuments({}),
+      MomEmbedding.countDocuments({ chunkType: { $ne: EMPTY } }),
       MomEmbedding.distinct("momId").then((a) => a.length),
+      MomEmbedding.countDocuments({ chunkType: EMPTY }),
     ]);
     res.json({
-      meetings, chunks, indexedMeetings,
+      meetings, chunks, indexedMeetings, emptyMeetings,
       pending: Math.max(meetings - indexedMeetings, 0),
       model: MODEL_NAME,
       ai: { provider: aiProvider() || "none" },
@@ -88,6 +90,7 @@ router.post("/reindex", async (req, res) => {
     const rebuild = req.query.rebuild === "1";
 
     if (rebuild) await MomEmbedding.deleteMany({});
+    if (req.query.retryEmpty === "1") await MomEmbedding.deleteMany({ chunkType: EMPTY });
 
     const done = await MomEmbedding.distinct("momId");
     const records = await MomFormat.find(rebuild ? {} : { _id: { $nin: done } })
@@ -98,15 +101,24 @@ router.post("/reindex", async (req, res) => {
       .lean();
 
     let chunksWritten = 0;
+    let emptyMeetings = 0;
     for (const rec of records) {
       const chunks = chunksFor(rec);
       for (const c of chunks) {
         c.embedding = await embed(c.text);
       }
+      await MomEmbedding.deleteMany({ momId: rec._id });
       if (chunks.length) {
-        await MomEmbedding.deleteMany({ momId: rec._id });
         await MomEmbedding.insertMany(chunks);
         chunksWritten += chunks.length;
+      } else {
+        // No embeddable text: record a marker so this meeting counts as
+        // processed and is not fetched again on every run.
+        await MomEmbedding.create({
+          momId: rec._id, chunkType: EMPTY, text: "", embedding: [],
+          state: clean(rec.state), createdByEmail: clean(rec.createdByEmail), model: MODEL_NAME,
+        });
+        emptyMeetings += 1;
       }
     }
 
@@ -117,6 +129,7 @@ router.post("/reindex", async (req, res) => {
     res.json({
       processedMeetings: records.length,
       chunksWritten,
+      emptyMeetings,
       pending: remaining,
       message: remaining === 0
         ? "Index is complete."
@@ -131,7 +144,7 @@ router.post("/reindex", async (req, res) => {
 
 // Try Atlas Vector Search; fall back to in-memory cosine if no index exists.
 async function retrieve(queryVector, scopeFilter, extraFilter, k) {
-  const filter = { ...scopeFilter, ...extraFilter };
+  const filter = { ...scopeFilter, ...extraFilter, chunkType: { $ne: EMPTY } };
   try {
     const results = await MomEmbedding.aggregate([
       {
