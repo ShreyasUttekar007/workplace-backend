@@ -211,7 +211,7 @@ async function discoverModel(provider, exclude) {
 const looksLikeBadModel = (status, msg) =>
   status === 404 || (status === 400 && /model/i.test(msg || ""));
 
-async function requestOnce(provider, model, prompt, signal) {
+async function requestOnce(provider, model, prompt, signal, maxTokens = 900) {
   if (provider === "groq") {
     const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -220,7 +220,7 @@ async function requestOnce(provider, model, prompt, signal) {
       body: JSON.stringify({
         model,
         temperature: 0.2,
-        max_tokens: 900,
+        max_tokens: maxTokens,
         messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],
       }),
     });
@@ -237,7 +237,7 @@ async function requestOnce(provider, model, prompt, signal) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 900 },
+        generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens },
       }),
     }
   );
@@ -246,7 +246,7 @@ async function requestOnce(provider, model, prompt, signal) {
            text: j?.candidates?.[0]?.content?.parts?.[0]?.text || "" };
 }
 
-async function callModel(prompt) {
+async function callModel(prompt, opts = {}) {
   callModel.lastError = "";
   const provider = aiProvider();
   if (!provider || typeof fetch !== "function") return null;
@@ -265,7 +265,8 @@ async function callModel(prompt) {
       return null;
     }
 
-    let res = await requestOnce(provider, model, prompt, ctrl.signal);
+    const maxTokens = Number(opts.maxTokens) || 900;
+    let res = await requestOnce(provider, model, prompt, ctrl.signal, maxTokens);
 
     // The model was retired or is not on this account -> pick another and retry once.
     if (!res.ok && looksLikeBadModel(res.status, res.msg)) {
@@ -273,7 +274,7 @@ async function callModel(prompt) {
       if (next && next !== model) {
         console.warn(`[AI] ${label} model "${model}" unavailable - switching to "${next}"`);
         model = next;
-        res = await requestOnce(provider, model, prompt, ctrl.signal);
+        res = await requestOnce(provider, model, prompt, ctrl.signal, maxTokens);
       }
     }
 
@@ -447,4 +448,4 @@ async function summarise(records, filters = {}) {
   return base;
 }
 
-module.exports = { summarise, categorise, aiProvider, callModel, activeModel };
+module.exports = { summarise, categorise, aiProvider, callModel, activeModel, parseJson };

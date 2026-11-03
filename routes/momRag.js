@@ -5,7 +5,7 @@ const MomFormat = require("../models/MomFormat");
 const MomEmbedding = require("../models/MomEmbedding");
 const { embed, cosine, MODEL_NAME } = require("../utils/embeddings");
 const { punjabAwareStateScope } = require("../utils/momScope");
-const { callModel, aiProvider, activeModel } = require("../utils/momSummarizer");
+const { callModel, aiProvider, activeModel, parseJson } = require("../utils/momSummarizer");
 
 router.use(authenticateUser);
 
@@ -224,28 +224,91 @@ router.post("/ask", async (req, res) => {
 
     let answer = "";
     let aiError = "";
+    let structured = null;
     if (aiProvider()) {
       const prompt =
 `You are analysing field meeting records recorded by party coordinators (PCMs).
 
 QUESTION: ${question}
 
-RECORDS:
+RECORDS (each starts with its number in square brackets):
 ${context}
 
-Answer the question using ONLY these records. Rules:
-- Cite the record numbers you rely on, like [3] or [5][9].
-- Name the PCM and constituency where it matters.
-- If the records do not answer the question, say so plainly.
-- Be specific and concise: 4-8 sentences, or short bullets if listing issues.
-- Never invent names, numbers or events that are not above.`;
-      answer = clean(await callModel(prompt) || "");
+Answer the question using ONLY these records. Return ONLY valid JSON, no prose
+before or after it, no markdown fences, in exactly this shape:
+
+{
+  "headline": "1-2 sentence direct answer to the question.",
+  "findings": [
+    {
+      "title": "Short name for this issue (3-7 words)",
+      "detail": "2-3 sentences explaining it, naming the PCM and constituency where relevant.",
+      "sources": [1, 8]
+    }
+  ],
+  "actions": ["Concrete next step implied by the records"],
+  "gaps": "What these records do NOT tell us, in one sentence. Empty string if nothing."
+}
+
+Rules:
+- 3 to 6 findings, most important first. Each must list the record numbers it relies on.
+- 2 to 4 actions.
+- Plain text inside the strings: no asterisks, no markdown, no bullet characters.
+- If the records do not answer the question, say so in "headline" and return empty findings.
+- Never invent names, numbers or events that are not in the records.`;
+
+      const raw = await callModel(prompt, { maxTokens: 1600 });
+      if (raw) {
+        const parsed = parseJson(raw);
+        const plain = (v) => String(v == null ? "" : v).replace(/\*\*|__|`/g, "").replace(/\s+/g, " ").trim();
+        if (parsed && (parsed.headline || (parsed.findings || []).length)) {
+          const valid = (n) => Number.isInteger(n) && n >= 1 && n <= results.length;
+          structured = {
+            headline: plain(parsed.headline),
+            findings: (Array.isArray(parsed.findings) ? parsed.findings : [])
+              .map((f) => ({
+                title: plain(f && f.title),
+                detail: plain(f && f.detail),
+                sources: [...new Set((f && Array.isArray(f.sources) ? f.sources : [])
+                  .map((x) => parseInt(x, 10)).filter(valid))],
+              }))
+              .filter((f) => f.title || f.detail)
+              .slice(0, 8),
+            actions: (Array.isArray(parsed.actions) ? parsed.actions : [])
+              .map(plain).filter(Boolean).slice(0, 6),
+            gaps: plain(parsed.gaps),
+          };
+
+          // Constituencies and PCMs behind the cited records - computed here,
+          // from the real data, rather than trusting the model to count.
+          const cited = new Set(structured.findings.flatMap((f) => f.sources));
+          const tally = (key) => {
+            const m = {};
+            results.forEach((r, i) => {
+              if (!cited.has(i + 1)) return;
+              const v = clean(r[key]);
+              if (v) m[v] = (m[v] || 0) + 1;
+            });
+            return Object.entries(m).map(([name, count]) => ({ name, count }))
+              .sort((a, b) => b.count - a.count);
+          };
+          structured.constituencies = tally("location");
+          structured.pcms = tally("createdByName");
+          answer = structured.headline;
+        } else {
+          // Model ignored the JSON format: keep its text but PRESERVE line breaks
+          // (collapsing them is what flattened the answer into one paragraph).
+          answer = String(raw).replace(/```[a-z]*|```/gi, "").replace(/[ \t]+/g, " ")
+            .replace(/\n{3,}/g, "\n\n").trim();
+        }
+      }
       if (!answer) aiError = callModel.lastError || "The AI service returned an empty response.";
     }
 
     res.json({
       question,
       answer,
+      structured,
       aiEnabled: !!aiProvider(),
       aiProvider: aiProvider() || "none",
       aiModel: answer ? activeModel() : "",
