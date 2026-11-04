@@ -378,3 +378,7 @@ router.get("/interventions", async (req, res) => {
 });
 
 module.exports = router;
+
+// Shared with routes/proformas.js so AP proformas use the same access list.
+module.exports.canViewAP = canViewAP;
+module.exports.canView = canView;
