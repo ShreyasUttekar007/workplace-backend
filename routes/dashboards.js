@@ -193,7 +193,8 @@ router.get("/caste-census", async (req, res) => {
  * endpoint first and only embeds the dashboard if the signed-in user is allowed.
  *
  * To add a dashboard later: add one entry below, plus one card in
- * DirectorDashboards.js. URLs can be overridden from .env without a code change.
+ * DirectorDashboards.js. Set controls: false to hide the floating
+ * Back / Reload / Open-in-new-tab bar for that dashboard. URLs can be overridden from .env without a code change.
  *
  * NOTE: these sites are hosted publicly. This gate controls access THROUGH THE
  * PORTAL; anyone holding the raw URL can still open it directly. Protect the
@@ -234,6 +235,7 @@ const EMBEDS = {
   },
   "ap-electoral-mapping": {
     project: "ap",
+    controls: false, // no floating Back / Reload / Open-in-new-tab bar
     title: "Andhra Pradesh Electoral Mapping Dashboard – Post SIR 2026",
     url: process.env.AP_ELECTORAL_MAP_URL ||
       "https://andhra-pradesh-voter-maps.vercel.app/",
@@ -250,6 +252,7 @@ router.get("/embed-access/:key", async (req, res) => {
   res.json({
     allowed: true, key: req.params.key, title: d.title, url: d.url,
     project: d.project, projectLabel: proj.label, hub: proj.hub,
+    controls: d.controls !== false,
   });
 });
 
