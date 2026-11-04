@@ -26,11 +26,20 @@ const router = express.Router();
 router.use(authenticateUser);
 
 /* --------------------------------- access --------------------------------- */
-// Same list as the AP Leadership Dashboards (single source of truth).
-let canViewAP = null;
-try { canViewAP = require("./dashboards").canViewAP; } catch (e) { canViewAP = null; }
-const isAdmin = (req) => (req.user?.roles || []).includes("admin");
-const allowed = (req) => (typeof canViewAP === "function" ? canViewAP(req) : isAdmin(req));
+// Restricted to these people only (no role-based bypass). This list is what
+// actually enforces access; WelcomePage.js / DirectorDashboards.js only decide
+// whether the tile is shown. Keep them in step when the list changes.
+const PROFORMA_EMAILS = [
+  "pardhasaradhi@showtimeconsulting.in",
+  "rs@showtimeconsulting.in",
+  "at@showtimeconsulting.in",
+  "khushboo@showtimeconsulting.in",
+  "alimpan@showtimeconsulting.in",
+  "aditya.pandit@showtimeconsulting.in",
+].map((e) => e.toLowerCase());
+
+const norm = (v) => String(v == null ? "" : v).replace(/["'\s]/g, "").toLowerCase();
+const allowed = (req) => PROFORMA_EMAILS.includes(norm(req.user && req.user.email));
 
 router.use((req, res, next) => {
   if (!allowed(req)) return res.status(403).json({ error: "Not authorised to view AC proformas." });
@@ -162,7 +171,6 @@ router.post("/ac/:key/reveal", express.json(), async (req, res) => {
 });
 
 router.get("/audit", async (req, res) => {
-  if (!isAdmin(req)) return res.status(403).json({ error: "Admin only." });
   const rows = await ProformaAudit.find({}).sort({ createdAt: -1 }).limit(200).lean();
   res.json(rows);
 });
