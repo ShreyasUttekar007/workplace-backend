@@ -150,18 +150,22 @@ function summariseReports(reports, window) {
 
 /* ------------------------------ AC (master) stats ------------------------------ */
 
-const NDA_PARTIES = new Set(["TDP", "JSP", "BJP", "NDA"]);
-const side = (party) => (NDA_PARTIES.has(String(party).toUpperCase()) ? "NDA"
-  : /YSRCP/i.test(party) ? "YSRCP" : party || "—");
+/* ------------------------------ names & labels ------------------------------ */
 
-function category(z) {
+const LEADER = { CBN: "HCM Chandrababu Naidu", JMR: "YS Jagan Mohan Reddy", PK: "DCM Pawan Kalyan", LN: "HITM Nara Lokesh" };
+const NDA_PARTIES = new Set(["TDP", "JSP", "BJP"]);
+const sgn = (x) => (x == null ? "—" : `${x > 0 ? "+" : ""}${x}`);
+
+/** How firm a lead is, in plain words (|z| = lead / its standard error). */
+function strengthOf(z) {
   if (z == null) return "Unknown";
-  if (z >= 1.96) return "Safe NDA";
-  if (z >= 1.0) return "Lean NDA";
-  if (z > -1.0) return "Toss-up";
-  if (z > -1.96) return "Lean YSRCP";
-  return "Safe YSRCP";
+  const a = Math.abs(z);
+  if (a >= 1.96) return "Comfortable lead";
+  if (a >= 1.0) return "Narrow lead";
+  return "Too close to call";
 }
+
+/* ------------------------------ AC (master) stats ------------------------------ */
 
 function acStats(master) {
   const rows = master.rows;
@@ -169,51 +173,55 @@ function acStats(master) {
   const latest = dates[dates.length - 1];
   const prevD = dates.length > 1 ? dates[dates.length - 2] : null;
   const byAc = new Map();
-  rows.forEach((r) => {
-    if (!byAc.has(r.acNo)) byAc.set(r.acNo, []);
-    byAc.get(r.acNo).push(r);
-  });
+  rows.forEach((r) => { if (!byAc.has(r.acNo)) byAc.set(r.acNo, []); byAc.get(r.acNo).push(r); });
   byAc.forEach((list) => list.sort((a, b) => (a.date < b.date ? -1 : 1)));
 
   const acs = [];
   byAc.forEach((list, acNo) => {
     const cur = list.find((r) => r.date === latest);
-    if (!cur) return; // AC missing on the latest date - reported in issues
+    if (!cur) return;
     const prev = prevD ? list.find((r) => r.date === prevD) : null;
     const first = list[0];
     const nda = cur.alliance.NDA; const ys = cur.alliance.YSRCP; const n = cur.sample;
-    const margin = nda != null && ys != null ? nda - ys : null;
+    const marginOf = (r) => (r && r.alliance.NDA != null && r.alliance.YSRCP != null ? r.alliance.NDA - r.alliance.YSRCP : null);
+    const margin = marginOf(cur);
     const se = seDiff(nda, ys, n);
     const z = se && margin != null ? margin / se : null;
     const pNda = z == null ? null : normCdf(z);
-    const marginOf = (r) => (r && r.alliance.NDA != null && r.alliance.YSRCP != null ? r.alliance.NDA - r.alliance.YSRCP : null);
     const hist = list.map((r) => ({ date: r.date, y: marginOf(r) }));
     const t = trend(hist.slice(-14));
-    const leader = margin == null ? "—" : margin >= 0 ? "NDA" : "YSRCP";
-    const was = side(cur.winner2024);
+    const contest = NDA_PARTIES.has(cur.ndaContest) ? cur.ndaContest : "TDP";
+    const projected = margin == null ? "—" : margin >= 0 ? contest : "YSRCP";
+    const won = String(cur.winner2024 || "").toUpperCase();
+    const own = cur.party[contest];
+    const standalone = own != null && cur.party.YSRCP != null ? own - cur.party.YSRCP : null;
     const cbnM = cur.cm.CBN != null && cur.cm.JMR != null ? cur.cm.CBN - cur.cm.JMR : null;
+    const cmLead = ["CBN", "JMR", "PK", "LN"].filter((k) => cur.cm[k] != null).sort((a, b) => cur.cm[b] - cur.cm[a])[0] || null;
     acs.push({
-      acNo, acName: cur.acName, pc: cur.pc, zone: cur.zone, winner2024: cur.winner2024, side2024: was,
-      ndaContest: cur.ndaContest, sample: n,
+      acNo, acName: cur.acName, pc: cur.pc, zone: cur.zone, sample: n,
+      winner2024: won, contestParty: contest, projected,
+      outcome: !won || projected === "—" ? "—" : won === projected ? `${projected} holds` : `${projected} gains from ${won}`,
+      changed: !!won && projected !== "—" && won !== projected,
       nda: r4(nda), ysrcp: r4(ys), margin: pts(margin), moe: pts(1.96 * (se || 0)),
-      z: r3(z), pNda: r3(pNda), category: category(z), leader,
-      status: was === "NDA" && leader === "YSRCP" ? "Lost vs 2024" : was === "YSRCP" && leader === "NDA" ? "Gained vs 2024" : "Held",
+      z: r3(z), pNda: r3(pNda), strength: strengthOf(z),
+      standalone: pts(standalone),
+      allianceDependent: standalone != null && margin != null && standalone < 0 && margin > 0,
       d1: prev ? pts(margin - marginOf(prev)) : null,
       dAll: list.length > 1 ? pts(margin - marginOf(first)) : null,
       slope: t.slope == null ? null : Math.round(t.slope * 10000) / 100,
       party: Object.fromEntries(Object.entries(cur.party).map(([k, v]) => [k, typeof v === "number" ? r4(v) : v])),
       cm: Object.fromEntries(Object.entries(cur.cm).map(([k, v]) => [k, typeof v === "number" ? r4(v) : v])),
-      cbnMargin: pts(cbnM),
+      cmLeader: cmLead, cbnMargin: pts(cbnM),
       cbnD1: prev && prev.cm.CBN != null && cur.cm.CBN != null ? pts(cur.cm.CBN - prev.cm.CBN) : null,
-      leaderPremium: cur.ndaContest === "TDP" && cur.cm.CBN != null && cur.party.TDP != null ? pts(cur.cm.CBN - cur.party.TDP) : null,
+      leaderPremium: contest === "TDP" && cur.ndaContest === "TDP" && cur.cm.CBN != null && cur.party.TDP != null ? pts(cur.cm.CBN - cur.party.TDP) : null,
       pkPremium: cur.cm.PK != null && cur.party.JSP != null ? pts(cur.cm.PK - cur.party.JSP) : null,
       perf: cur.perf,
       sampleD1: prev && prev.sample ? Math.round(((n - prev.sample) / prev.sample) * 1000) / 10 : null,
-      leaderChanged: prev ? (marginOf(prev) >= 0) !== (margin >= 0) : false,
+      leaderChanged: prev && marginOf(prev) != null && margin != null ? (marginOf(prev) >= 0) !== (margin >= 0) : false,
       cmLeaderChanged: prev && prev.cm.leading && cur.cm.leading ? prev.cm.leading !== cur.cm.leading : false,
-      series: list.slice(-60).map((r) => ({
-        date: r.date, margin: pts(marginOf(r)), nda: pts(r.alliance.NDA), ysrcp: pts(r.alliance.YSRCP),
-        tdp: pts(r.party.TDP), cbn: pts(r.cm.CBN), jmr: pts(r.cm.JMR), pk: pts(r.cm.PK),
+      series: list.slice(-90).map((r) => ({
+        date: r.date, margin: pts(marginOf(r)), tdp: pts(r.party.TDP), ysrcp: pts(r.party.YSRCP), jsp: pts(r.party.JSP), bjp: pts(r.party.BJP),
+        cbn: pts(r.cm.CBN), jmr: pts(r.cm.JMR), pk: pts(r.cm.PK), ln: pts(r.cm.LN),
       })),
       _hist: hist,
     });
@@ -224,41 +232,50 @@ function acStats(master) {
 
 /* ---------------------------------- seats ---------------------------------- */
 
+const STRENGTHS = ["Comfortable lead", "Narrow lead", "Too close to call"];
+
 function seatProjection(acs) {
+  const parties = ["TDP", "JSP", "BJP", "YSRCP"];
+  const byParty = {};
+  parties.forEach((p) => {
+    const contested = p === "YSRCP" ? acs : acs.filter((a) => a.contestParty === p);
+    const ahead = acs.filter((a) => a.projected === p);
+    const exp = p === "YSRCP" ? contested.reduce((s, a) => s + (1 - (a.pNda || 0)), 0)
+      : contested.reduce((s, a) => s + (a.pNda || 0), 0);
+    byParty[p] = {
+      party: p, contested: contested.length,
+      won2024: acs.filter((a) => a.winner2024 === p).length,
+      ahead: ahead.length, expected: Math.round(exp),
+      ...Object.fromEntries(STRENGTHS.map((s) => [s, ahead.filter((a) => a.strength === s).length])),
+      gains: ahead.filter((a) => a.winner2024 && a.winner2024 !== p).length,
+      losses: acs.filter((a) => a.winner2024 === p && a.projected !== p).length,
+      dependent: p === "YSRCP" ? 0 : contested.filter((a) => a.allianceDependent).length,
+    };
+  });
   const p = acs.map((a) => a.pNda).filter(Number.isFinite);
   const E = p.reduce((s, x) => s + x, 0);
   const sdv = Math.sqrt(p.reduce((s, x) => s + x * (1 - x), 0));
-  const cats = ["Safe NDA", "Lean NDA", "Toss-up", "Lean YSRCP", "Safe YSRCP"];
-  const byCat = Object.fromEntries(cats.map((c) => [c, acs.filter((a) => a.category === c).length]));
-  const byZone = {};
+  const zones = {};
   acs.forEach((a) => {
-    const z = (byZone[a.zone] = byZone[a.zone] || { zone: a.zone, NDA: 0, YSRCP: 0, total: 0, expected: 0, 2024: 0, ...Object.fromEntries(cats.map((c) => [c, 0])) });
-    z.total++; z[a.leader] = (z[a.leader] || 0) + 1; z.expected += a.pNda || 0; z[a.category]++;
-    if (a.side2024 === "NDA") z[2024]++;
+    const z = (zones[a.zone] = zones[a.zone] || { zone: a.zone, total: 0, TDP: 0, JSP: 0, BJP: 0, YSRCP: 0, close: 0 });
+    z.total++; if (z[a.projected] != null) z[a.projected]++; if (a.strength === "Too close to call") z.close++;
   });
-  Object.values(byZone).forEach((z) => { z.expected = Math.round(z.expected * 10) / 10; });
-  const leaders = (key) => {
-    const c = {};
-    acs.forEach((a) => { const l = key(a) || "—"; c[l] = (c[l] || 0) + 1; });
-    return c;
-  };
   return {
-    ndaLeading: acs.filter((a) => a.leader === "NDA").length,
-    ysrcpLeading: acs.filter((a) => a.leader === "YSRCP").length,
-    expectedNda: Math.round(E * 10) / 10,
-    band90: [Math.max(0, Math.round(E - 1.645 * sdv)), Math.min(acs.length, Math.round(E + 1.645 * sdv))],
     total: acs.length,
-    nda2024: acs.filter((a) => a.side2024 === "NDA").length,
-    byCategory: byCat,
-    byZone: Object.values(byZone).sort((a, b) => a.zone.localeCompare(b.zone, undefined, { numeric: true })),
-    partyLeaders: leaders((a) => a.party.leading),
-    cmLeaders: leaders((a) => a.cm.leading),
-    lost: acs.filter((a) => a.status === "Lost vs 2024").map((a) => a.acNo),
-    gained: acs.filter((a) => a.status === "Gained vs 2024").map((a) => a.acNo),
+    byParty,
+    ndaAhead: acs.filter((a) => a.projected !== "YSRCP" && a.projected !== "—").length,
+    ndaExpected: Math.round(E),
+    ndaRange: [Math.max(0, Math.round(E - 1.645 * sdv)), Math.min(acs.length, Math.round(E + 1.645 * sdv))],
+    nda2024: acs.filter((a) => NDA_PARTIES.has(a.winner2024)).length,
+    tooClose: acs.filter((a) => a.strength === "Too close to call").length,
+    byZone: Object.values(zones).sort((a, b) => a.zone.localeCompare(b.zone, undefined, { numeric: true })),
+    changed: acs.filter((a) => a.changed).map((a) => a.acNo),
   };
 }
 
 /* -------------------------------- anomalies -------------------------------- */
+
+const KIND_TEXT = { party: (m) => `support for ${m}`, alliance: (m) => `support for the ${m}`, cm: (m) => `support for ${LEADER[m] || m} as CM`, govt: () => "net approval of the state government" };
 
 function anomalies(acs, stateBlocks, latest) {
   const out = [];
@@ -266,23 +283,19 @@ function anomalies(acs, stateBlocks, latest) {
     const m = median(vals); const d = mad(vals);
     return (v) => (v == null || m == null || !d ? null : (v - m) / (1.4826 * d));
   };
-  // 1) cross-sectional: unusual daily move in NDA margin and CBN share
   const zM = robust(acs.map((a) => a.d1).filter(Number.isFinite));
   const zC = robust(acs.map((a) => a.cbnD1).filter(Number.isFinite));
   acs.forEach((a) => {
     const z1 = zM(a.d1);
     if (z1 != null && Math.abs(z1) >= 3.5 && Math.abs(a.d1) >= 1) {
-      out.push({ type: "Unusual move", severity: Math.abs(z1) >= 5 ? "High" : "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone,
-        metric: "NDA margin", change: a.d1, score: r3(z1),
-        text: `${a.acName}: NDA margin moved ${a.d1 > 0 ? "+" : ""}${a.d1}% in a day (${Math.abs(z1).toFixed(1)}× a typical constituency's daily move)` });
+      out.push({ type: "Sudden change", severity: Math.abs(z1) >= 5 ? "High" : "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, change: a.d1, score: r3(z1),
+        text: `${a.acName}: the gap between ${a.contestParty} and YSRCP moved ${sgn(a.d1)}% in one day — far more than in other constituencies.` });
     }
     const z2 = zC(a.cbnD1);
     if (z2 != null && Math.abs(z2) >= 3.5 && Math.abs(a.cbnD1) >= 1) {
-      out.push({ type: "Unusual move", severity: Math.abs(z2) >= 5 ? "High" : "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone,
-        metric: "CBN preference", change: a.cbnD1, score: r3(z2),
-        text: `${a.acName}: CBN preference moved ${a.cbnD1 > 0 ? "+" : ""}${a.cbnD1}% in a day (${Math.abs(z2).toFixed(1)}× typical)` });
+      out.push({ type: "Sudden change", severity: Math.abs(z2) >= 5 ? "High" : "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, change: a.cbnD1, score: r3(z2),
+        text: `${a.acName}: support for ${LEADER.CBN} as CM moved ${sgn(a.cbnD1)}% in one day — far more than elsewhere.` });
     }
-    // 2) temporal: today's move vs this AC's own history (needs >= 10 days)
     const diffs = [];
     for (let i = 1; i < a._hist.length; i++) {
       const y0 = a._hist[i - 1].y; const y1 = a._hist[i].y;
@@ -292,26 +305,23 @@ function anomalies(acs, stateBlocks, latest) {
       const today = diffs[diffs.length - 1]; const past = diffs.slice(0, -1);
       const s = sd(past); const m = mean(past);
       if (s && Math.abs((today - m) / s) >= 3 && Math.abs(today) >= 0.01) {
-        out.push({ type: "Break from own trend", severity: "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone,
-          metric: "NDA margin", change: pts(today), score: r3((today - m) / s),
-          text: `${a.acName}: today's NDA-margin move is ${((today - m) / s).toFixed(1)} SD from its own recent pattern` });
+        out.push({ type: "Break from usual pattern", severity: "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, change: pts(today), score: r3((today - m) / s),
+          text: `${a.acName}: today's movement (${sgn(pts(today))}%) is far outside this constituency's usual day-to-day pattern.` });
       }
     }
-    // 3) lead changes and data quality
     if (a.leaderChanged) {
-      out.push({ type: "Lead change", severity: "High", acNo: a.acNo, acName: a.acName, zone: a.zone, metric: "Alliance lead",
-        change: a.d1, text: `${a.acName}: alliance lead switched to ${a.leader} (margin now ${a.margin > 0 ? "+" : ""}${a.margin}%)` });
+      out.push({ type: "Lead changed hands", severity: "High", acNo: a.acNo, acName: a.acName, zone: a.zone, change: a.d1,
+        text: `${a.acName}: ${a.projected} is now ahead (gap ${sgn(Math.abs(a.margin))}%).` });
     }
     if (a.cmLeaderChanged) {
-      out.push({ type: "Lead change", severity: "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, metric: "CM preference",
-        change: a.cbnD1, text: `${a.acName}: CM-preference lead switched to ${a.cm.leading}` });
+      out.push({ type: "Lead changed hands", severity: "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, change: a.cbnD1,
+        text: `${a.acName}: ${LEADER[a.cm.leading] || a.cm.leading} is now the most preferred Chief Minister here.` });
     }
     if (a.sampleD1 != null && a.sampleD1 <= -30) {
-      out.push({ type: "Data quality", severity: "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, metric: "Sample",
-        change: a.sampleD1, text: `${a.acName}: sample fell ${Math.abs(a.sampleD1)}% day-on-day — treat today's figures with caution` });
+      out.push({ type: "Fewer interviews", severity: "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, change: a.sampleD1,
+        text: `${a.acName}: ${Math.abs(a.sampleD1)}% fewer interviews than the day before — treat today's figures with caution.` });
     }
   });
-  // 4) segment-level: unusual daily movement among voter groups (official tables)
   Object.entries(stateBlocks).forEach(([kind, blk]) => {
     const main = KIND_MAIN[kind];
     const segs = (blk.segments || []).filter((s) => s.d1 && s.d1[main] != null);
@@ -319,50 +329,63 @@ function anomalies(acs, stateBlocks, latest) {
     segs.forEach((s) => {
       const z = zS(s.d1[main]);
       if (z != null && Math.abs(z) >= 3.5 && Math.abs(s.d1[main]) >= 1) {
-        out.push({ type: "Segment shift", severity: "Medium", segment: `${s.group}: ${s.label}`, metric: `${main} (${kind})`,
-          change: s.d1[main], score: r3(z),
-          text: `${s.group} – ${s.label}: ${main} ${s.d1[main] > 0 ? "+" : ""}${s.d1[main]}% day-on-day (${Math.abs(z).toFixed(1)}× typical segment move)` });
+        out.push({ type: "Voter group shift", severity: "Medium", segment: `${s.group}: ${s.label}`, change: s.d1[main], score: r3(z),
+          text: `${s.label} (${s.group.toLowerCase()}): ${KIND_TEXT[kind](main)} moved ${sgn(s.d1[main])}% in one day — unusual compared with other groups.` });
       }
     });
   });
-  const sev = { High: 0, Medium: 1, Low: 2 };
+  const sev = { High: 0, Medium: 1 };
   return out.sort((a, b) => sev[a.severity] - sev[b.severity] || Math.abs(b.score || 0) - Math.abs(a.score || 0)).map((x) => ({ ...x, date: latest }));
 }
 
 /* ------------------------------- correlations ------------------------------- */
 
+const METRIC_SHORT = {
+  "Govt Performance": "the state government", "MLA Performance": "their MLA's work", "MLA Availability": "their MLA's availability",
+  "MLA Behaviour": "their MLA's behaviour", "MLA Retention": "re-electing their MLA",
+};
+const METRIC_TEXT = {
+  "Govt Performance": "How people rate the state government",
+  "MLA Performance": "How people rate their MLA's work",
+  "MLA Availability": "How available the MLA is to people",
+  "MLA Behaviour": "How people rate the MLA's behaviour",
+  "MLA Retention": "Whether people want the MLA again",
+};
+
 function drivers(acs, perfMetrics) {
   const y = acs.map((a) => a.margin);
-  const out = perfMetrics.map((m) => {
+  return perfMetrics.map((m) => {
     const x = acs.map((a) => (a.perf[m] ? a.perf[m].score : null));
     const c = pearson(x, y);
+    const r = c.r;
     return {
-      metric: m, r: r3(c.r), p: c.p == null ? null : Number(c.p.toPrecision(2)), n: c.n,
+      metric: m, label: METRIC_TEXT[m] || m, r: r3(r), p: c.p == null ? null : Number(c.p.toPrecision(2)), n: c.n,
       significant: c.p != null && c.p < 0.05,
-      ptsPer10: c.slope == null ? null : Math.round(c.slope * 0.1 * 10) / 10, // margin pts per +0.10 score
+      strengthText: r == null ? "—" : Math.abs(r) >= 0.7 ? "Very strong link" : Math.abs(r) >= 0.5 ? "Strong link" : Math.abs(r) >= 0.3 ? "Moderate link" : "Weak link",
+      ptsPer10: c.slope == null ? null : Math.round(c.slope * 0.1 * 10) / 10,
       intercept: c.slope == null ? null : r3(mean(y) - c.slope * mean(x)),
       slope: c.slope == null ? null : r3(c.slope),
-      // scatter points are rebuilt in the browser from the AC table (no duplication)
     };
-  });
-  return out.sort((a, b) => Math.abs(b.r || 0) - Math.abs(a.r || 0));
+  }).sort((a, b) => Math.abs(b.r || 0) - Math.abs(a.r || 0));
 }
 
 /* --------------------------------- at risk --------------------------------- */
 
 function atRisk(acs) {
   const bad = /bad|low/i;
-  return acs.filter((a) => a.side2024 === "NDA" && a.margin != null)
+  return acs.filter((a) => NDA_PARTIES.has(a.winner2024) && a.margin != null)
     .map((a) => {
-      const weak = ["MLA Performance", "MLA Availability", "MLA Behaviour", "MLA Retention"]
-        .filter((m) => a.perf[m] && bad.test(a.perf[m].rating));
+      const weak = ["MLA Performance", "MLA Availability", "MLA Behaviour", "MLA Retention"].filter((m) => a.perf[m] && bad.test(a.perf[m].rating));
       let score = 0;
       score += a.margin < 0 ? 40 : a.margin < 5 ? 25 : a.margin < 10 ? 10 : 0;
-      score += a.category === "Toss-up" ? 15 : /YSRCP/.test(a.category) ? 25 : 0;
+      score += a.strength === "Too close to call" ? 15 : a.projected === "YSRCP" ? 25 : 0;
       score += weak.length * 6;
+      score += a.allianceDependent ? 8 : 0;
       score += a.slope != null && a.slope < 0 ? Math.min(Math.abs(a.slope) * 10, 15) : 0;
-      return { acNo: a.acNo, acName: a.acName, zone: a.zone, pc: a.pc, margin: a.margin, category: a.category,
-        weakMla: weak, slope: a.slope, riskScore: Math.round(score) };
+      return { acNo: a.acNo, acName: a.acName, zone: a.zone, pc: a.pc, heldBy: a.winner2024, contestParty: a.contestParty,
+        projected: a.projected, margin: a.margin, strength: a.strength, standalone: a.standalone, allianceDependent: a.allianceDependent,
+        weakMla: weak, slope: a.slope, riskScore: Math.round(score),
+        level: score >= 60 ? "High" : score >= 40 ? "Medium" : "Watch" };
     })
     .filter((x) => x.riskScore >= 25)
     .sort((a, b) => b.riskScore - a.riskScore);
@@ -373,36 +396,23 @@ function atRisk(acs) {
 function insights(ctx) {
   const { seats, reps, acs, anomalies: an, drivers: dr } = ctx;
   const out = [];
-  const sgn = (x) => (x > 0 ? `+${x}` : `${x}`);
-  out.push({ tone: seats.expectedNda >= seats.nda2024 ? "good" : "warn",
-    text: `Projected NDA seats ${seats.expectedNda} (90% range ${seats.band90[0]}–${seats.band90[1]}) vs ${seats.nda2024} won in 2024; NDA leads in ${seats.ndaLeading} of ${seats.total} ACs.` });
-  const al = reps.alliance && reps.alliance.state;
-  if (al && al.vsBase.NDA != null) {
-    out.push({ tone: al.vsBase.NDA >= 0 ? "good" : "warn",
-      text: `NDA vote share ${(al.values.NDA * 100).toFixed(1)}% (${sgn(al.vsBase.NDA)}% vs AE2024); YSRCP ${(al.values.YSRCP * 100).toFixed(1)}% (${sgn(al.vsBase.YSRCP)}%).` });
+  const bp = seats.byParty;
+  const won = (p) => `${p} won ${bp[p].won2024} in 2024`;
+  out.push({ tone: "info",
+    text: `If an election were held today: TDP would be ahead in ${bp.TDP.ahead} of the ${bp.TDP.contested} seats it contests (${won("TDP")}), JSP in ${bp.JSP.ahead} of ${bp.JSP.contested} (${won("JSP")}), BJP in ${bp.BJP.ahead} of ${bp.BJP.contested} (${won("BJP")}), and YSRCP in ${bp.YSRCP.ahead} (it won ${bp.YSRCP.won2024}).` });
+  if (seats.tooClose) out.push({ tone: "warn", text: `${seats.tooClose} seat${seats.tooClose > 1 ? "s are" : " is"} too close to call — the gap between the two sides is smaller than the survey can reliably measure.` });
+  const pa = reps.party && reps.party.state;
+  if (pa) {
+    const part = ["TDP", "YSRCP", "JSP", "BJP"].filter((p) => pa.values[p] != null)
+      .map((p) => `${p} ${(pa.values[p] * 100).toFixed(1)}%${pa.vsBase[p] != null ? ` (${sgn(pa.vsBase[p])}% since 2024)` : ""}`);
+    out.push({ tone: pa.vsBase.TDP >= 0 ? "good" : "warn", text: `Vote share today: ${part.join(", ")}.` });
   }
+  if (bp.TDP.dependent) out.push({ tone: "warn", text: `In ${bp.TDP.dependent} TDP seat${bp.TDP.dependent > 1 ? "s" : ""}, TDP on its own is behind YSRCP and stays ahead only with JSP and BJP votes.` });
+  if (bp.JSP.dependent) out.push({ tone: "info", text: `In ${bp.JSP.dependent} of ${bp.JSP.contested} JSP seats, JSP's own vote is smaller than YSRCP's — TDP and BJP supporters carry these seats.` });
   const cm = reps.cm && reps.cm.state;
-  if (cm && cm.vsBase.CBN != null) {
+  if (cm) {
     out.push({ tone: cm.vsBase.CBN >= 0 ? "good" : "warn",
-      text: `CBN preferred by ${(cm.values.CBN * 100).toFixed(1)}% vs JMR ${(cm.values.JMR * 100).toFixed(1)}% — CBN ${sgn(cm.vsBase.CBN)}% vs the 2024 survey; PK ${sgn(cm.vsBase.PK)}%.` });
-  }
-  const gv = reps.govt && reps.govt.state;
-  if (gv) out.push({ tone: gv.values.Net >= 0 ? "good" : "warn", text: `State government net approval ${sgn(pts(gv.values.Net))}% (above-average minus below-average rating).` });
-  if (seats.byCategory["Toss-up"]) out.push({ tone: "warn", text: `${seats.byCategory["Toss-up"]} ACs are statistical toss-ups — the lead is inside the margin of error.` });
-  if (seats.lost.length) {
-    const names = acs.filter((a) => seats.lost.includes(a.acNo)).slice(0, 5).map((a) => a.acName).join(", ");
-    out.push({ tone: "bad", text: `${seats.lost.length} NDA-held seat${seats.lost.length > 1 ? "s" : ""} now trail YSRCP: ${names}${seats.lost.length > 5 ? "…" : ""}.` });
-  }
-  // voter segments whose NDA swing vs AE2024 is larger than their own margin of error
-  const segs = ((reps.alliance && reps.alliance.segments) || [])
-    .filter((x) => x.vsBase.NDA != null && x.moe && x.moe.NDA != null && Math.abs(x.vsBase.NDA) > x.moe.NDA);
-  const losers = segs.filter((x) => x.vsBase.NDA < 0).sort((a, b) => a.vsBase.NDA - b.vsBase.NDA).slice(0, 4);
-  const gainers = segs.filter((x) => x.vsBase.NDA > 0).sort((a, b) => b.vsBase.NDA - a.vsBase.NDA).slice(0, 3);
-  if (losers.length) {
-    out.push({ tone: "bad", text: `NDA has lost ground vs AE2024 among ${losers.map((x) => `${x.label} (${sgn(x.vsBase.NDA)})`).join(", ")} — beyond the margin of error.` });
-  }
-  if (gainers.length) {
-    out.push({ tone: "good", text: `Biggest NDA gains vs AE2024: ${gainers.map((x) => `${x.label} (${sgn(x.vsBase.NDA)})`).join(", ")}.` });
+      text: `${(cm.values.CBN * 100).toFixed(1)}% want ${LEADER.CBN} as Chief Minister and ${(cm.values.JMR * 100).toFixed(1)}% want ${LEADER.JMR}. Support for ${LEADER.CBN} is ${cm.vsBase.CBN >= 0 ? "up" : "down"} ${Math.abs(cm.vsBase.CBN)}% compared with the 2024 survey, while ${LEADER.PK} is ${cm.vsBase.PK >= 0 ? "up" : "down"} ${Math.abs(cm.vsBase.PK)}%.` });
   }
   const lp = acs.filter((a) => a.leaderPremium != null);
   if (lp.length) {
@@ -410,13 +420,24 @@ function insights(ctx) {
     const avg = Math.round((lp.reduce((t, a) => t + a.leaderPremium, 0) / lp.length) * 10) / 10;
     out.push({ tone: behind > lp.length / 2 ? "warn" : "good",
       text: behind === lp.length
-        ? `CBN trails TDP in all ${lp.length} TDP-contested constituencies (average ${sgn(avg)}%): fewer people want him as CM than vote TDP.`
-        : `CBN runs behind TDP in ${behind} of ${lp.length} TDP-contested constituencies (average ${sgn(avg)}%).` });
+        ? `In all ${lp.length} TDP seats, fewer people want ${LEADER.CBN} as CM than vote for TDP (on average ${Math.abs(avg)}% fewer).`
+        : `In ${behind} of ${lp.length} TDP seats, fewer people want ${LEADER.CBN} as CM than vote for TDP.` });
   }
-  const strongest = (dr || []).find((d) => d.significant);
-  if (strongest) out.push({ tone: "info", text: `${strongest.metric} is the strongest driver of the NDA margin across ACs (r = ${strongest.r}): every +10 in the score goes with about ${sgn(strongest.ptsPer10)}% more NDA margin.` });
+  const segs = ((reps.party && reps.party.segments) || [])
+    .filter((x) => x.vsBase.TDP != null && x.moe && x.moe.TDP != null && Math.abs(x.vsBase.TDP) > x.moe.TDP);
+  const losers = segs.filter((x) => x.vsBase.TDP < 0).sort((a, b) => a.vsBase.TDP - b.vsBase.TDP).slice(0, 4);
+  if (losers.length) out.push({ tone: "bad", text: `TDP has lost support since 2024 among ${losers.map((x) => `${x.label} (${x.vsBase.TDP}%)`).join(", ")}.` });
+  const gainers = segs.filter((x) => x.vsBase.TDP > 0).sort((a, b) => b.vsBase.TDP - a.vsBase.TDP).slice(0, 3);
+  if (gainers.length) out.push({ tone: "good", text: `TDP's biggest gains since 2024: ${gainers.map((x) => `${x.label} (${sgn(x.vsBase.TDP)}%)`).join(", ")}.` });
+  const gv = reps.govt && reps.govt.state;
+  if (gv && gv.values["Above Average"] != null) {
+    out.push({ tone: gv.values.Net >= 0 ? "good" : "warn",
+      text: `${(gv.values["Above Average"] * 100).toFixed(0)}% rate the state government above average and ${(gv.values["Below Average"] * 100).toFixed(0)}% below average.` });
+  }
+  const strongest = (dr || []).find((d) => d.significant && d.r > 0);
+  if (strongest) out.push({ tone: "info", text: `Where people rate ${METRIC_SHORT[strongest.metric] || strongest.metric} more highly, the NDA's lead over YSRCP is clearly bigger — the strongest pattern in the data.` });
   const hi = an.filter((x) => x.severity === "High").length;
-  if (an.length) out.push({ tone: hi ? "bad" : "info", text: `${an.length} anomal${an.length === 1 ? "y" : "ies"} flagged on the latest day${hi ? ` (${hi} high severity)` : ""}.` });
+  if (an.length) out.push({ tone: hi ? "bad" : "info", text: `${an.length} unusual movement${an.length === 1 ? "" : "s"} on the latest day${hi ? `, ${hi} of them important` : ""} — see Alerts.` });
   return out;
 }
 
@@ -435,11 +456,7 @@ function buildDashboard(parsed) {
     const reps = summariseReports(reports, reportWindows.length ? w : "");
     const issues = [...(master ? master.issues : [])];
     let acs = []; let dates = []; let latest = null; let prevD = null;
-    if (master) ({ acs, dates, latest, prevD } = acStats(master));
-    if (master && acs.length < new Set(master.rows.map((r) => r.acNo)).size) {
-      issues.push(`${new Set(master.rows.map((r) => r.acNo)).size - acs.length} AC(s) have no row on the latest date ${latest}.`);
-    }
-    // PC -> zone from the master (the report only labels some PCs)
+    if (master && master.rows.length) ({ acs, dates, latest, prevD } = acStats(master));
     const pcZone = {}; acs.forEach((a) => { if (a.pc && a.zone) pcZone[a.pc] = a.zone; });
     Object.values(reps).forEach((blk) => (blk.pcs || []).forEach((p) => { if (!p.zone) p.zone = pcZone[p.label] || ""; }));
 
@@ -465,4 +482,25 @@ function buildDashboard(parsed) {
   return result;
 }
 
-module.exports = { buildDashboard, normCdf, seDiff, seProp, trend, pearson, median, mad };
+/** Keep only data between two ISO dates (inclusive); either bound may be empty. */
+function filterByDate(parsed, from, to) {
+  const inRange = (d) => (!from || d >= from) && (!to || d <= to);
+  return {
+    ...parsed,
+    masters: parsed.masters.map((m) => ({ ...m, rows: m.rows.filter((r) => inRange(r.date)) })),
+    reports: parsed.reports.map((r) => ({
+      ...r,
+      entities: Object.fromEntries(Object.entries(r.entities).map(([k, e]) => [k, { ...e, series: e.series.filter((p) => inRange(p.date)) }])),
+    })),
+  };
+}
+
+function dateBounds(parsed) {
+  const all = [
+    ...parsed.masters.flatMap((m) => m.rows.map((r) => r.date)),
+    ...parsed.reports.flatMap((r) => Object.values(r.entities).flatMap((e) => e.series.map((p) => p.date))),
+  ].sort();
+  return { min: all[0] || null, max: all[all.length - 1] || null };
+}
+
+module.exports = { buildDashboard, filterByDate, dateBounds, LEADER, normCdf, seDiff, seProp, trend, pearson, median, mad };

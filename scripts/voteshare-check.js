@@ -9,7 +9,7 @@ const fs = require("fs");
 const path = require("path");
 const { google } = require("googleapis");
 const { parseWorkbooks } = require("../utils/voteshareParser");
-const { buildDashboard } = require("../utils/voteshareStats");
+const { buildDashboard, dateBounds } = require("../utils/voteshareStats");
 
 const IDS = (process.env.VOTESHARE_SHEET_IDS ||
   "148qSk09SH7PS1xq8Jcuni_FnCafWHIBisDsQ0xdUcA4,1HPrYlTsZBZ6hZ9ikSB0LYzgtN6634tZ2mA4cJfFyfM4").split(",").map((s) => s.trim());
@@ -41,11 +41,15 @@ const KEY = [process.env.VOTESHARE_KEY_FILE, path.join(__dirname, "..", "config"
   console.log("\nrecognised master tabs:", parsed.masters.map((m) => `${m.tab} (${m.rows.length} rows, window "${m.window || "inherit"}")`).join(", ") || "NONE");
   console.log("recognised report tabs:", parsed.reports.map((r) => `${r.tab} [${r.kind}, ${r.window || "no window"}]`).join(", ") || "NONE");
   console.log("not recognised:", parsed.skipped.join(", ") || "none");
+  console.log("dates available:", JSON.stringify(dateBounds(parsed)));
   const d = buildDashboard(parsed);
   for (const w of d.windows) {
     const x = d.byWindow[w];
     console.log(`\n=== ${w}: ${x.firstDate} -> ${x.latestDate} (${x.days} days), ${x.acs.length} ACs`);
-    if (x.seats) console.log(`seats: NDA leads ${x.seats.ndaLeading}/${x.seats.total}, expected ${x.seats.expectedNda} [${x.seats.band90.join("-")}], toss-ups ${x.seats.byCategory["Toss-up"]}`);
+    if (x.seats) {
+      Object.values(x.seats.byParty).forEach((p) => console.log(`  ${p.party.padEnd(6)} ahead in ${p.ahead} of ${p.contested} (won ${p.won2024} in 2024) | comfortable ${p["Comfortable lead"]}, narrow ${p["Narrow lead"]}, too close ${p["Too close to call"]}`));
+      console.log(`  too close to call: ${x.seats.tooClose}`);
+    }
     console.log(`anomalies: ${x.anomalies.length} | at-risk seats: ${x.atRisk.length} | issues: ${x.issues.length ? x.issues.join(" ; ") : "none"}`);
     x.insights.forEach((i) => console.log("  -", i.text));
   }

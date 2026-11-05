@@ -16,7 +16,7 @@ const zlib = require("zlib");
 const { google } = require("googleapis");
 const authenticateUser = require("../middleware/authenticateUser");
 const { parseWorkbooks } = require("../utils/voteshareParser");
-const { buildDashboard } = require("../utils/voteshareStats");
+const { buildDashboard, filterByDate, dateBounds } = require("../utils/voteshareStats");
 
 const router = express.Router();
 router.use(authenticateUser);
@@ -71,35 +71,45 @@ function explain(err) {
 }
 
 const CACHE_MS = 5 * 60 * 1000;
-let cache = null; // { at, gz, sources }
+let sheetCache = null;            // { at, parsed, bounds }
+const viewCache = new Map();      // "from|to" -> gzipped JSON (cleared on every sheet re-read)
 
-async function build() {
+async function readSheets() {
   const auth = new google.auth.GoogleAuth({ keyFile: keyFile(), scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"] });
   const sheets = google.sheets({ version: "v4", auth: await auth.getClient() });
   const books = await Promise.all(SHEET_IDS.map((id) => readSpreadsheet(sheets, id)));
   const parsed = parseWorkbooks(books);
-  const dash = buildDashboard(parsed);
-  dash.sources = books.map((b) => ({
-    title: b.sheetTitle, url: `https://docs.google.com/spreadsheets/d/${b.id}/edit`, tabs: Object.keys(b.tabs),
-  }));
-  dash.parsed = {
-    masters: parsed.masters.map((m) => ({ sheet: m.sheetTitle, tab: m.tab, rows: m.rows.length, window: m.window || "(inherits report window)" })),
-    reports: parsed.reports.map((r) => ({ sheet: r.sheetTitle, tab: r.tab, kind: r.kind, window: r.window, entities: Object.keys(r.entities).length })),
-  };
-  dash.fetchedAt = new Date().toISOString();
-  return { at: Date.now(), gz: zlib.gzipSync(JSON.stringify(dash)) };
+  return { at: Date.now(), parsed, bounds: dateBounds(parsed) };
 }
+
+const isoOk = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? String(v) : "");
 
 router.get("/", async (req, res) => {
   try {
-    if (!cache || req.query.refresh === "1" || Date.now() - cache.at > CACHE_MS) cache = await build();
+    if (!sheetCache || req.query.refresh === "1" || Date.now() - sheetCache.at > CACHE_MS) {
+      sheetCache = await readSheets();
+      viewCache.clear();
+    }
+    const { bounds } = sheetCache;
+    let from = isoOk(req.query.from) || bounds.min || "";
+    let to = isoOk(req.query.to) || bounds.max || "";
+    if (from && to && from > to) [from, to] = [to, from];
+    const key = `${from}|${to}`;
+    if (!viewCache.has(key)) {
+      const dash = buildDashboard(filterByDate(sheetCache.parsed, from, to));
+      dash.dateRange = { min: bounds.min, max: bounds.max, from, to };
+      dash.fetchedAt = new Date(sheetCache.at).toISOString();
+      if (viewCache.size > 30) viewCache.delete(viewCache.keys().next().value);
+      viewCache.set(key, zlib.gzipSync(JSON.stringify(dash)));
+    }
+    const gz = viewCache.get(key);
     res.set("Content-Type", "application/json; charset=utf-8");
     res.set("Cache-Control", "no-store");
     if (/\bgzip\b/.test(req.headers["accept-encoding"] || "")) {
       res.set("Content-Encoding", "gzip");
-      return res.send(cache.gz);
+      return res.send(gz);
     }
-    return res.send(zlib.gunzipSync(cache.gz));
+    return res.send(zlib.gunzipSync(gz));
   } catch (err) {
     console.warn("[voteshare]", err.message);
     res.status(502).json({ error: explain(err) });
