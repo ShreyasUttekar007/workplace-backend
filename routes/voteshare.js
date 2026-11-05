@@ -21,13 +21,14 @@ const { buildDashboard } = require("../utils/voteshareStats");
 const router = express.Router();
 router.use(authenticateUser);
 
-// Same audience as the other AP Leadership Dashboards (single source of truth).
-let canViewAP = null;
-try { canViewAP = require("./dashboards").canViewAP; } catch (e) { canViewAP = null; }
-const isAdmin = (req) => (req.user?.roles || []).includes("admin");
+// Restricted for now to the people listed here (no role-based bypass). The hub
+// card in DirectorDashboards.js uses the same list only to decide visibility.
+const VOTESHARE_EMAILS = ["pardhasaradhi@showtimeconsulting.in"];
+const norm = (v) => String(v == null ? "" : v).replace(/["'\s]/g, "").toLowerCase();
 router.use((req, res, next) => {
-  const ok = typeof canViewAP === "function" ? canViewAP(req) : isAdmin(req);
-  if (!ok) return res.status(403).json({ error: "Not authorised to view this dashboard." });
+  if (!VOTESHARE_EMAILS.includes(norm(req.user && req.user.email))) {
+    return res.status(403).json({ error: "Not authorised to view this dashboard." });
+  }
   next();
 });
 

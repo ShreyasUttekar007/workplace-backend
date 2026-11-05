@@ -274,13 +274,13 @@ function anomalies(acs, stateBlocks, latest) {
     if (z1 != null && Math.abs(z1) >= 3.5 && Math.abs(a.d1) >= 1) {
       out.push({ type: "Unusual move", severity: Math.abs(z1) >= 5 ? "High" : "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone,
         metric: "NDA margin", change: a.d1, score: r3(z1),
-        text: `${a.acName}: NDA margin moved ${a.d1 > 0 ? "+" : ""}${a.d1} pts in a day (${Math.abs(z1).toFixed(1)}× the typical AC move)` });
+        text: `${a.acName}: NDA margin moved ${a.d1 > 0 ? "+" : ""}${a.d1}% in a day (${Math.abs(z1).toFixed(1)}× a typical constituency's daily move)` });
     }
     const z2 = zC(a.cbnD1);
     if (z2 != null && Math.abs(z2) >= 3.5 && Math.abs(a.cbnD1) >= 1) {
       out.push({ type: "Unusual move", severity: Math.abs(z2) >= 5 ? "High" : "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone,
         metric: "CBN preference", change: a.cbnD1, score: r3(z2),
-        text: `${a.acName}: CBN preference moved ${a.cbnD1 > 0 ? "+" : ""}${a.cbnD1} pts in a day (${Math.abs(z2).toFixed(1)}× typical)` });
+        text: `${a.acName}: CBN preference moved ${a.cbnD1 > 0 ? "+" : ""}${a.cbnD1}% in a day (${Math.abs(z2).toFixed(1)}× typical)` });
     }
     // 2) temporal: today's move vs this AC's own history (needs >= 10 days)
     const diffs = [];
@@ -300,7 +300,7 @@ function anomalies(acs, stateBlocks, latest) {
     // 3) lead changes and data quality
     if (a.leaderChanged) {
       out.push({ type: "Lead change", severity: "High", acNo: a.acNo, acName: a.acName, zone: a.zone, metric: "Alliance lead",
-        change: a.d1, text: `${a.acName}: alliance lead switched to ${a.leader} (margin now ${a.margin > 0 ? "+" : ""}${a.margin} pts)` });
+        change: a.d1, text: `${a.acName}: alliance lead switched to ${a.leader} (margin now ${a.margin > 0 ? "+" : ""}${a.margin}%)` });
     }
     if (a.cmLeaderChanged) {
       out.push({ type: "Lead change", severity: "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, metric: "CM preference",
@@ -321,7 +321,7 @@ function anomalies(acs, stateBlocks, latest) {
       if (z != null && Math.abs(z) >= 3.5 && Math.abs(s.d1[main]) >= 1) {
         out.push({ type: "Segment shift", severity: "Medium", segment: `${s.group}: ${s.label}`, metric: `${main} (${kind})`,
           change: s.d1[main], score: r3(z),
-          text: `${s.group} – ${s.label}: ${main} ${s.d1[main] > 0 ? "+" : ""}${s.d1[main]} pts day-on-day (${Math.abs(z).toFixed(1)}× typical segment move)` });
+          text: `${s.group} – ${s.label}: ${main} ${s.d1[main] > 0 ? "+" : ""}${s.d1[main]}% day-on-day (${Math.abs(z).toFixed(1)}× typical segment move)` });
       }
     });
   });
@@ -379,15 +379,15 @@ function insights(ctx) {
   const al = reps.alliance && reps.alliance.state;
   if (al && al.vsBase.NDA != null) {
     out.push({ tone: al.vsBase.NDA >= 0 ? "good" : "warn",
-      text: `NDA vote share ${(al.values.NDA * 100).toFixed(1)}% (${sgn(al.vsBase.NDA)} pts vs AE2024); YSRCP ${(al.values.YSRCP * 100).toFixed(1)}% (${sgn(al.vsBase.YSRCP)} pts).` });
+      text: `NDA vote share ${(al.values.NDA * 100).toFixed(1)}% (${sgn(al.vsBase.NDA)}% vs AE2024); YSRCP ${(al.values.YSRCP * 100).toFixed(1)}% (${sgn(al.vsBase.YSRCP)}%).` });
   }
   const cm = reps.cm && reps.cm.state;
   if (cm && cm.vsBase.CBN != null) {
     out.push({ tone: cm.vsBase.CBN >= 0 ? "good" : "warn",
-      text: `CBN preferred by ${(cm.values.CBN * 100).toFixed(1)}% vs JMR ${(cm.values.JMR * 100).toFixed(1)}% — CBN ${sgn(cm.vsBase.CBN)} pts vs the 2024 survey; PK ${sgn(cm.vsBase.PK)} pts.` });
+      text: `CBN preferred by ${(cm.values.CBN * 100).toFixed(1)}% vs JMR ${(cm.values.JMR * 100).toFixed(1)}% — CBN ${sgn(cm.vsBase.CBN)}% vs the 2024 survey; PK ${sgn(cm.vsBase.PK)}%.` });
   }
   const gv = reps.govt && reps.govt.state;
-  if (gv) out.push({ tone: gv.values.Net >= 0 ? "good" : "warn", text: `State government net approval ${sgn(pts(gv.values.Net))} pts (Above-average minus below-average rating).` });
+  if (gv) out.push({ tone: gv.values.Net >= 0 ? "good" : "warn", text: `State government net approval ${sgn(pts(gv.values.Net))}% (above-average minus below-average rating).` });
   if (seats.byCategory["Toss-up"]) out.push({ tone: "warn", text: `${seats.byCategory["Toss-up"]} ACs are statistical toss-ups — the lead is inside the margin of error.` });
   if (seats.lost.length) {
     const names = acs.filter((a) => seats.lost.includes(a.acNo)).slice(0, 5).map((a) => a.acName).join(", ");
@@ -404,8 +404,17 @@ function insights(ctx) {
   if (gainers.length) {
     out.push({ tone: "good", text: `Biggest NDA gains vs AE2024: ${gainers.map((x) => `${x.label} (${sgn(x.vsBase.NDA)})`).join(", ")}.` });
   }
+  const lp = acs.filter((a) => a.leaderPremium != null);
+  if (lp.length) {
+    const behind = lp.filter((a) => a.leaderPremium < 0).length;
+    const avg = Math.round((lp.reduce((t, a) => t + a.leaderPremium, 0) / lp.length) * 10) / 10;
+    out.push({ tone: behind > lp.length / 2 ? "warn" : "good",
+      text: behind === lp.length
+        ? `CBN trails TDP in all ${lp.length} TDP-contested constituencies (average ${sgn(avg)}%): fewer people want him as CM than vote TDP.`
+        : `CBN runs behind TDP in ${behind} of ${lp.length} TDP-contested constituencies (average ${sgn(avg)}%).` });
+  }
   const strongest = (dr || []).find((d) => d.significant);
-  if (strongest) out.push({ tone: "info", text: `${strongest.metric} is the strongest driver of the NDA margin across ACs (r = ${strongest.r}): +0.10 in score ≈ ${sgn(strongest.ptsPer10)} pts of margin.` });
+  if (strongest) out.push({ tone: "info", text: `${strongest.metric} is the strongest driver of the NDA margin across ACs (r = ${strongest.r}): every +10 in the score goes with about ${sgn(strongest.ptsPer10)}% more NDA margin.` });
   const hi = an.filter((x) => x.severity === "High").length;
   if (an.length) out.push({ tone: hi ? "bad" : "info", text: `${an.length} anomal${an.length === 1 ? "y" : "ies"} flagged on the latest day${hi ? ` (${hi} high severity)` : ""}.` });
   return out;
