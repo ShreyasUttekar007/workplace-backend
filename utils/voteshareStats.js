@@ -19,7 +19,7 @@
 
 const pts = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 1000) / 10);
 const r3 = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 1000) / 1000);
-const r4 = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 10000) / 10000);
+const r4 = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 1e6) / 1e6); // keep precision: round only once, at display
 
 /* ------------------------------- primitives ------------------------------- */
 
@@ -182,8 +182,12 @@ function acStats(master) {
     if (!cur) return;
     const prev = prevD ? list.find((r) => r.date === prevD) : null;
     const first = list[0];
-    const nda = cur.alliance.NDA; const ys = cur.alliance.YSRCP; const n = cur.sample;
-    const marginOf = (r) => (r && r.alliance.NDA != null && r.alliance.YSRCP != null ? r.alliance.NDA - r.alliance.YSRCP : null);
+    // Seat calls use the PARTY question throughout, so every figure shown for a seat adds up:
+    // NDA side = TDP + JSP + BJP party shares; the other side = YSRCP's party share.
+    const ndaOf = (r) => (r ? ["TDP", "JSP", "BJP"].reduce((t, k) => t + (r.party[k] || 0), 0) : null);
+    const n = cur.sample;
+    const nda = ndaOf(cur); const ys = cur.party.YSRCP;
+    const marginOf = (r) => (r && r.party.YSRCP != null ? ndaOf(r) - r.party.YSRCP : null);
     const margin = marginOf(cur);
     const se = seDiff(nda, ys, n);
     const z = se && margin != null ? margin / se : null;
@@ -197,18 +201,23 @@ function acStats(master) {
     const standalone = own != null && cur.party.YSRCP != null ? own - cur.party.YSRCP : null;
     const cbnM = cur.cm.CBN != null && cur.cm.JMR != null ? cur.cm.CBN - cur.cm.JMR : null;
     const cmLead = ["CBN", "JMR", "PK", "LN"].filter((k) => cur.cm[k] != null).sort((a, b) => cur.cm[b] - cur.cm[a])[0] || null;
+    const ranked = ["TDP", "YSRCP", "JSP", "BJP", "INC"].filter((k) => cur.party[k] != null).sort((a, b) => cur.party[b] - cur.party[a]);
+    const topParty = ranked[0] || null;
+    const topGap = ranked.length > 1 ? cur.party[ranked[0]] - cur.party[ranked[1]] : null;
     acs.push({
       acNo, acName: cur.acName, pc: cur.pc, zone: cur.zone, sample: n,
       winner2024: won, contestParty: contest, projected,
       outcome: !won || projected === "—" ? "—" : won === projected ? `${projected} holds` : `${projected} gains from ${won}`,
       changed: !!won && projected !== "—" && won !== projected,
       nda: r4(nda), ysrcp: r4(ys), margin: pts(margin), moe: pts(1.96 * (se || 0)),
+      topParty, topGap: pts(topGap), runnerUp: ranked[1] || null,
       z: r3(z), pNda: r3(pNda), strength: strengthOf(z),
       standalone: pts(standalone),
       allianceDependent: standalone != null && margin != null && standalone < 0 && margin > 0,
       d1: prev ? pts(margin - marginOf(prev)) : null,
       dAll: list.length > 1 ? pts(margin - marginOf(first)) : null,
       slope: t.slope == null ? null : Math.round(t.slope * 10000) / 100,
+      trendDays: t.n,
       party: Object.fromEntries(Object.entries(cur.party).map(([k, v]) => [k, typeof v === "number" ? r4(v) : v])),
       cm: Object.fromEntries(Object.entries(cur.cm).map(([k, v]) => [k, typeof v === "number" ? r4(v) : v])),
       cmLeader: cmLead, cbnMargin: pts(cbnM),
@@ -370,25 +379,46 @@ function drivers(acs, perfMetrics) {
 }
 
 /* --------------------------------- at risk --------------------------------- */
-
+/*
+ * A seat is "at risk" for the party that won it in 2024 when ANY of these is true:
+ *   High    - Losing:        the other side is now ahead
+ *   High    - Too close:     the lead is smaller than the survey can reliably measure
+ *   Medium  - Narrow lead:   ahead, but only just beyond the margin of error
+ *   Watch   - Needs allies:  in a TDP seat, TDP's own vote is below YSRCP's; ahead only with JSP/BJP votes
+ *   Watch   - Slipping:      comfortable lead, but falling by 0.25% a day or more (needs >= 7 days of data)
+ * Weak MLA ratings are listed as context; they do not decide the level.
+ */
 function atRisk(acs) {
   const bad = /bad|low/i;
-  return acs.filter((a) => NDA_PARTIES.has(a.winner2024) && a.margin != null)
-    .map((a) => {
-      const weak = ["MLA Performance", "MLA Availability", "MLA Behaviour", "MLA Retention"].filter((m) => a.perf[m] && bad.test(a.perf[m].rating));
-      let score = 0;
-      score += a.margin < 0 ? 40 : a.margin < 5 ? 25 : a.margin < 10 ? 10 : 0;
-      score += a.strength === "Too close to call" ? 15 : a.projected === "YSRCP" ? 25 : 0;
-      score += weak.length * 6;
-      score += a.allianceDependent ? 8 : 0;
-      score += a.slope != null && a.slope < 0 ? Math.min(Math.abs(a.slope) * 10, 15) : 0;
-      return { acNo: a.acNo, acName: a.acName, zone: a.zone, pc: a.pc, heldBy: a.winner2024, contestParty: a.contestParty,
-        projected: a.projected, margin: a.margin, strength: a.strength, standalone: a.standalone, allianceDependent: a.allianceDependent,
-        weakMla: weak, slope: a.slope, riskScore: Math.round(score),
-        level: score >= 60 ? "High" : score >= 40 ? "Medium" : "Watch" };
-    })
-    .filter((x) => x.riskScore >= 25)
-    .sort((a, b) => b.riskScore - a.riskScore);
+  const out = [];
+  acs.forEach((a) => {
+    const held = a.winner2024;
+    if (!held || a.margin == null) return;
+    const heldNda = NDA_PARTIES.has(held);
+    const lead = heldNda ? a.margin : -a.margin;            // + means the 2024 winner's side is still ahead
+    const reasons = [];
+    let level = null;
+    const f1 = (x) => Math.abs(x).toFixed(1);
+    if (lead < 0) { level = "High"; reasons.push(`${heldNda ? "YSRCP" : `the NDA candidate (${a.contestParty})`} is now ahead by ${f1(a.margin)}%`); }
+    else if (a.strength === "Too close to call") { level = "High"; reasons.push(`lead of ${f1(lead)}% is smaller than the survey margin of error (±${a.moe}%)`); }
+    else if (a.strength === "Narrow lead") { level = "Medium"; reasons.push(`narrow lead of ${f1(lead)}%`); }
+    // "Needs allies" applies to TDP seats only: JSP and BJP candidates rely on TDP voters by design.
+    if (heldNda && a.allianceDependent && a.contestParty === "TDP") {
+      level = level || "Watch";
+      reasons.push(`TDP's own vote is ${f1(a.standalone)}% below YSRCP — ahead only with JSP/BJP votes`);
+    }
+    // a trend is only meaningful with at least a week of daily points
+    const slope = a.trendDays >= 7 ? (heldNda ? a.slope : (a.slope == null ? null : -a.slope)) : null;
+    if (slope != null && slope <= -0.25) { level = level || "Watch"; reasons.push(`lead falling by ${Math.abs(slope).toFixed(2)}% a day`); }
+    if (!level) return;
+    const weak = ["MLA Performance", "MLA Availability", "MLA Behaviour", "MLA Retention"].filter((m) => a.perf[m] && bad.test(a.perf[m].rating));
+    out.push({
+      acNo: a.acNo, acName: a.acName, zone: a.zone, pc: a.pc, heldBy: held, contestParty: a.contestParty, projected: a.projected,
+      lead: Math.round(lead * 10) / 10, moe: a.moe, strength: a.strength, standalone: a.standalone, level, reasons, weakMla: weak, slope,
+    });
+  });
+  const order = { High: 0, Medium: 1, Watch: 2 };
+  return out.sort((x, y) => order[x.level] - order[y.level] || x.lead - y.lead);
 }
 
 /* --------------------------------- insights -------------------------------- */
@@ -400,15 +430,17 @@ function insights(ctx) {
   const won = (p) => `${p} won ${bp[p].won2024} in 2024`;
   out.push({ tone: "info",
     text: `If an election were held today: TDP would be ahead in ${bp.TDP.ahead} of the ${bp.TDP.contested} seats it contests (${won("TDP")}), JSP in ${bp.JSP.ahead} of ${bp.JSP.contested} (${won("JSP")}), BJP in ${bp.BJP.ahead} of ${bp.BJP.contested} (${won("BJP")}), and YSRCP in ${bp.YSRCP.ahead} (it won ${bp.YSRCP.won2024}).` });
-  if (seats.tooClose) out.push({ tone: "warn", text: `${seats.tooClose} seat${seats.tooClose > 1 ? "s are" : " is"} too close to call — the gap between the two sides is smaller than the survey can reliably measure.` });
+  if (seats.tooClose) out.push({ tone: "warn", text: `${seats.tooClose} seat${seats.tooClose > 1 ? "s are" : " is"} too close to call — the gap between the NDA side and YSRCP is smaller than the survey can reliably measure.` });
+  const riskTotal = ctx.risk ? ctx.risk.filter((r) => r.level === "High").length : 0;
+  if (riskTotal) out.push({ tone: "bad", text: `${riskTotal} seat${riskTotal > 1 ? "s" : ""} won in 2024 ${riskTotal > 1 ? "are" : "is"} now at high risk (losing or too close to call) — see Seats at risk.` });
   const pa = reps.party && reps.party.state;
   if (pa) {
     const part = ["TDP", "YSRCP", "JSP", "BJP"].filter((p) => pa.values[p] != null)
       .map((p) => `${p} ${(pa.values[p] * 100).toFixed(1)}%${pa.vsBase[p] != null ? ` (${sgn(pa.vsBase[p])}% since 2024)` : ""}`);
     out.push({ tone: pa.vsBase.TDP >= 0 ? "good" : "warn", text: `Vote share today: ${part.join(", ")}.` });
   }
-  if (bp.TDP.dependent) out.push({ tone: "warn", text: `In ${bp.TDP.dependent} TDP seat${bp.TDP.dependent > 1 ? "s" : ""}, TDP on its own is behind YSRCP and stays ahead only with JSP and BJP votes.` });
-  if (bp.JSP.dependent) out.push({ tone: "info", text: `In ${bp.JSP.dependent} of ${bp.JSP.contested} JSP seats, JSP's own vote is smaller than YSRCP's — TDP and BJP supporters carry these seats.` });
+  if (bp.TDP.dependent) out.push({ tone: "warn", text: `In ${bp.TDP.dependent} TDP seat${bp.TDP.dependent > 1 ? "s" : ""}, TDP's own vote is below YSRCP's; the NDA is ahead there only with JSP and BJP votes.` });
+  if (bp.JSP.dependent) out.push({ tone: "info", text: `In ${bp.JSP.dependent} of ${bp.JSP.contested} JSP seats, JSP's own vote is smaller than YSRCP's; the NDA is ahead there because of TDP and BJP supporters' votes.` });
   const cm = reps.cm && reps.cm.state;
   if (cm) {
     out.push({ tone: cm.vsBase.CBN >= 0 ? "good" : "warn",
@@ -418,10 +450,10 @@ function insights(ctx) {
   if (lp.length) {
     const behind = lp.filter((a) => a.leaderPremium < 0).length;
     const avg = Math.round((lp.reduce((t, a) => t + a.leaderPremium, 0) / lp.length) * 10) / 10;
-    out.push({ tone: behind > lp.length / 2 ? "warn" : "good",
+    out.push({ tone: "info",
       text: behind === lp.length
-        ? `In all ${lp.length} TDP seats, fewer people want ${LEADER.CBN} as CM than vote for TDP (on average ${Math.abs(avg)}% fewer).`
-        : `In ${behind} of ${lp.length} TDP seats, fewer people want ${LEADER.CBN} as CM than vote for TDP.` });
+        ? `In all ${lp.length} TDP seats, preference for ${LEADER.CBN} as Chief Minister is lower than TDP's vote share (by ${Math.abs(avg)}% on average).`
+        : `In ${behind} of ${lp.length} TDP seats, preference for ${LEADER.CBN} as Chief Minister is lower than TDP's vote share.` });
   }
   const segs = ((reps.party && reps.party.segments) || [])
     .filter((x) => x.vsBase.TDP != null && x.moe && x.moe.TDP != null && Math.abs(x.vsBase.TDP) > x.moe.TDP);
@@ -475,7 +507,7 @@ function buildDashboard(parsed) {
       firstDate: dates[0] || repDates[0] || null,
       days: Math.max(dates.length, repDates.length),
       state: reps, acs, seats, anomalies: an, drivers: dr, atRisk: risk, perfMetrics,
-      insights: seats ? insights({ seats, reps, acs, anomalies: an, drivers: dr }) : [],
+      insights: seats ? insights({ seats, reps, acs, anomalies: an, drivers: dr, risk }) : [],
       issues,
     };
   });
