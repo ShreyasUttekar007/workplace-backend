@@ -465,6 +465,38 @@ function parseProforma(tabs) {
 
     if (kind === "caste") {
       blocks.forEach((b) => {
+        // Percentages may be entered as fractions (0.2957), as percents (29.57), or - in the
+        // same sheet - a mix of both. Decide each row from its voter count where possible.
+        const pc = b.columns.find((c) => /^percent/i.test(c.label));
+        const nc = b.columns.find((c) => /^number/i.test(c.label));
+        if (pc) {
+          const val = (r) => { const t = String(r[pc.key] == null ? "" : r[pc.key]).trim(); if (!t) return null; const v = Number(t.replace(/[%\s,]/g, "")); return Number.isFinite(v) ? v : null; };
+          const cnt = (r) => { if (!nc) return null; const v = Number(String(r[nc.key] || "").replace(/[,\s]/g, "")); return Number.isFinite(v) && v > 0 ? v : null; };
+          // ratio = count / value. Rows entered as fractions all imply the electorate (count / 0.2957);
+          // rows entered as percents imply a value 100x smaller. Cluster on the largest ratio.
+          const withBoth = b.rows.filter((r) => val(r) != null && val(r) > 0 && cnt(r));
+          const ratio = (r) => cnt(r) / val(r);
+          const rmax = withBoth.length ? Math.max(...withBoth.map(ratio)) : null;
+          const top = withBoth.filter((r) => ratio(r) >= rmax / 10);
+          // a fraction can never exceed 1, so a top cluster containing any value > 1 is in percents
+          const topAreFractions = top.length > 0 && top.every((r) => val(r) <= 1);
+          const allSmall = b.rows.filter((r) => val(r) != null).every((r) => val(r) <= 1);
+          const mixed = [];
+          b.rows.forEach((r) => {
+            const v = val(r); if (v == null) return;
+            let isFraction;
+            if (withBoth.length >= 2 && cnt(r)) isFraction = topAreFractions && ratio(r) >= rmax / 10;
+            else isFraction = allSmall && v <= 1;         // no counts to go on: only if every value looks like a fraction
+            if (isFraction) r[pc.key] = String(Math.round(v * 1000) / 10);
+            else if (topAreFractions) mixed.push(r);
+          });
+          if (mixed.length) {
+            const nameCol = b.columns.find((c) => /caste\s*name/i.test(c.label)) || b.columns[1];
+            b.issues.push(`Percentage format differs for ${mixed.map((r) => r[nameCol.key]).join(", ")} (entered as a percent, others as fractions) — read correctly from the voter count.`);
+          }
+        }
+      });
+      blocks.forEach((b) => {
         const num = b.columns.find((c) => /^number/i.test(c.label));
         const pct = b.columns.find((c) => /^percent/i.test(c.label));
         if (!num || !pct) return;
@@ -515,12 +547,19 @@ function parseProforma(tabs) {
     n + (b.rows || []).filter((r) => !/resolved/i.test(JSON.stringify(r)) || /not\s*resolved/i.test(JSON.stringify(r))).length, 0) : 0;
   const latestAssembly = [...elections.Assembly].sort((a, b) => b.year - a.year)[0];
 
+  const mandalRows = (mandalSec && mandalSec.blocks[0] && mandalSec.blocks[0].rows) || [];
+  const numOf = (v) => { const n = Number(String(v || "").replace(/[,\s]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; };
+  const voterSum = mandalRows.length > 1 ? mandalRows.reduce((t, r) => t + (numOf(pick(r, /total voters/i)) || 0), 0) : 0;
+  const statuses = mandalRows.map((r) => pick(r, /status/i)).filter(Boolean);
+  const statusSummary = new Set(statuses).size <= 1 ? (statuses[0] || "")
+    : Object.entries(statuses.reduce((m, x) => ({ ...m, [x]: (m[x] || 0) + 1 }), {})).map(([k, n]) => `${n} ${k}`).join(" · ");
+
   const kpis = {
-    totalVoters: pick(mandalRow, /total voters/i) ||
+    totalVoters: (voterSum ? voterSum.toLocaleString("en-IN") : "") || pick(mandalRow, /total voters/i) ||
       (demographics && demographics.rows[0] ? Object.values(demographics.rows[0])[1] : ""),
     margin2024: latestAssembly && latestAssembly.margin ? latestAssembly.margin : pick(mandalRow, /margin/i),
     winner2024: latestAssembly ? latestAssembly.winner : "",
-    mandalStatus: pick(mandalRow, /status/i),
+    mandalStatus: statusSummary || pick(mandalRow, /status/i),
     weakBooths: countPeople(/weak|focus\s*booth/i),
     openConflicts,
     disgruntled: countPeople(/inactive|disgruntled/i),
@@ -528,6 +567,45 @@ function parseProforma(tabs) {
     troublemakers: countPeople(/troublemaker/i),
     govtIssues: countPeople(/govt|government/i),
   };
+
+  // --- Fallbacks for ACs whose "2024 Analysis" tab is not filled in yet ---
+  if (!profile) {
+    // Zone / Parliament / Assembly are repeated on every row of tables like the weak-booth list.
+    for (const s2 of sections) {
+      for (const b of s2.blocks) {
+        const zc = (b.columns || []).find((c) => /^zone$/i.test(c.label));
+        const pcc = (b.columns || []).find((c) => /^parliament/i.test(c.label));
+        const rows = b.rows || [];
+        if (zc && pcc && rows[0] && rows[0][zc.key]) {
+          profile = { Zone: rows[0][zc.key], "Parliament Constituency": rows[0][pcc.key] };
+          const ac = (b.columns || []).find((c) => /^assembly/i.test(c.label));
+          if (ac && rows[0][ac.key]) profile["Assembly Constituency"] = rows[0][ac.key];
+          break;
+        }
+      }
+      if (profile) break;
+    }
+    if (profile && mandalRows.length) profile["No Of Mandals/Towns"] = String(mandalRows.length);
+    if (profile) profile._source = "derived";
+  }
+  if (!castes.length) {
+    const cs = sections.find((x) => x.kind === "caste");
+    const cb = cs && cs.blocks.find((b) => b.rows && b.rows.length);
+    if (cb) {
+      const col = (rx) => cb.columns.find((c) => rx.test(c.label));
+      const cName = col(/caste\s*name/i); const cNum = col(/^number/i); const cPct = col(/^percent/i);
+      const cTrad = col(/trad/i); const cCur = col(/current/i); const cLead = col(/leader/i);
+      castes = cb.rows.map((r) => ({
+        caste: cName ? r[cName.key] : "",
+        count: cNum ? numOf(r[cNum.key]) : null,
+        pct: cPct && r[cPct.key] !== undefined && r[cPct.key] !== "" ? Number(r[cPct.key]) : null,
+        traditional: partySplit(cTrad && r[cTrad.key]),
+        current: partySplit(cCur && r[cCur.key]),
+        leaders: cLead ? r[cLead.key] || "" : "",
+      })).filter((c) => c.caste);
+    }
+  }
+  if (profile && profile._source) delete profile._source;
 
   return {
     dossier: {
