@@ -431,8 +431,8 @@ function insights(ctx) {
   out.push({ tone: "info",
     text: `If an election were held today: TDP would be ahead in ${bp.TDP.ahead} of the ${bp.TDP.contested} seats it contests (${won("TDP")}), JSP in ${bp.JSP.ahead} of ${bp.JSP.contested} (${won("JSP")}), BJP in ${bp.BJP.ahead} of ${bp.BJP.contested} (${won("BJP")}), and YSRCP in ${bp.YSRCP.ahead} (it won ${bp.YSRCP.won2024}).` });
   if (seats.tooClose) out.push({ tone: "warn", text: `${seats.tooClose} seat${seats.tooClose > 1 ? "s are" : " is"} too close to call — the gap between the NDA side and YSRCP is smaller than the survey can reliably measure.` });
-  const riskTotal = ctx.risk ? ctx.risk.filter((r) => r.level === "High").length : 0;
-  if (riskTotal) out.push({ tone: "bad", text: `${riskTotal} seat${riskTotal > 1 ? "s" : ""} won in 2024 ${riskTotal > 1 ? "are" : "is"} now at high risk (losing or too close to call) — see Seats at risk.` });
+  const weakHeld = acs.filter((a) => NDA_PARTIES.has(a.winner2024) && !a.changed && a.health && a.health.band === "Weak").length;
+  if (weakHeld) out.push({ tone: "bad", text: `${weakHeld} seat${weakHeld > 1 ? "s" : ""} the NDA won in 2024 ${weakHeld > 1 ? "are" : "is"} now rated Weak on seat health — see Flip watch for what is driving each one.` });
   const pa = reps.party && reps.party.state;
   if (pa) {
     const part = ["TDP", "YSRCP", "JSP", "BJP"].filter((p) => pa.values[p] != null)
@@ -475,6 +475,98 @@ function insights(ctx) {
 
 /* ---------------------------------- build ---------------------------------- */
 
+/* ------------------------------- seat health ------------------------------- */
+/*
+ * Seat Health Score (0-100), always from the NDA side's point of view:
+ *   Vote lead      0-50  = 50 x P(NDA side genuinely ahead)   (allows for the margin of error)
+ *   Trend          0-20  = 10 neutral; +/- up to 10 for the 14-day trend (needs >= 7 days of data)
+ *   Local ratings  0-30  = each rating's rank among all ACs, weighted by how strongly that rating is
+ *                          linked to the NDA lead statewide (correlation r). In seats YSRCP won in 2024,
+ *                          the MLA ratings describe a YSRCP MLA, so they count the other way.
+ * Bands (NDA side's strength): Strong >= 75, Stable 60-74, Watch 45-59, Weak < 45.
+ */
+const HEALTH_BANDS = [[75, "Strong"], [60, "Stable"], [45, "Watch"], [0, "Weak"]];
+const RATING_LABEL = {
+  "Govt Performance": "State government rating", "MLA Performance": "MLA's work",
+  "MLA Availability": "MLA's availability", "MLA Behaviour": "MLA's behaviour", "MLA Retention": "Want MLA again",
+};
+
+function seatHealth(acs, drv, perfMetrics) {
+  const N = acs.length;
+  const usable = (drv || []).filter((d) => d.significant && d.r > 0);
+  const totalR = usable.reduce((t, d) => t + d.r, 0) || 1;
+  const weight = Object.fromEntries(usable.map((d) => [d.metric, d.r / totalR]));
+  const avg = {};
+  perfMetrics.forEach((m) => {
+    const v = acs.map((a) => a.perf[m] && a.perf[m].score).filter(Number.isFinite);
+    avg[m] = v.length ? v.reduce((t, x) => t + x, 0) / v.length : null;
+  });
+  // rank -> percentile (1 = best in state). Use the sheet's own rank when present, else rank the scores.
+  const pctOf = (a, m) => {
+    const p = a.perf[m];
+    if (!p) return null;
+    if (Number.isFinite(p.rank) && N > 1) return 1 - (p.rank - 1) / (N - 1);
+    const better = acs.filter((x) => x.perf[m] && x.perf[m].score > p.score).length;
+    return 1 - better / Math.max(N - 1, 1);
+  };
+
+  acs.forEach((a) => {
+    const lead = 50 * (a.pNda == null ? 0.5 : a.pNda);
+    const trendReady = (a.trendDays || 0) >= 7 && a.slope != null;
+    const trend = trendReady ? 10 + Math.max(-10, Math.min(10, a.slope * 20)) : 10;
+    const ysrcpMla = a.winner2024 === "YSRCP";
+    let local = 0;
+    const factors = [];
+    perfMetrics.forEach((m) => {
+      const pct = pctOf(a, m);
+      if (pct == null) return;
+      const isMla = /^MLA/i.test(m);
+      const forNda = isMla && ysrcpMla ? 1 - pct : pct;     // a well-rated YSRCP MLA helps YSRCP
+      if (weight[m]) local += 30 * weight[m] * forNda;
+      factors.push({
+        metric: m, label: RATING_LABEL[m] || m, weight: Math.round((weight[m] || 0) * 100),
+        score: a.perf[m].score != null ? Math.round(a.perf[m].score * 1000) / 10 : null,
+        stateAvg: avg[m] != null ? Math.round(avg[m] * 1000) / 10 : null,
+        rank: a.perf[m].rank != null ? a.perf[m].rank : null, rating: a.perf[m].rating || "",
+        effect: Math.round((forNda - 0.5) * 2 * (weight[m] || 0) * 100) / 100,   // -w .. +w : helps (+) or hurts (-) the NDA side
+        ysrcpMla: isMla && ysrcpMla,
+      });
+    });
+    const score = Math.round(lead + trend + local);
+    const band = HEALTH_BANDS.find(([min]) => score >= min)[1];
+    // days until the lead would reach zero at the current trend (only with >= 7 days of data)
+    const ndaLead = a.margin;
+    const towardsZero = trendReady && ndaLead != null && a.slope != null && Math.sign(a.slope) === -Math.sign(ndaLead) && a.slope !== 0;
+    const daysToFlip = towardsZero ? Math.round(Math.abs(ndaLead / a.slope)) : null;
+    // 7-day change of the NDA side's lead
+    const ser = a.series || [];
+    const last = ser[ser.length - 1];
+    let change7 = null;
+    if (last) {
+      const cut = new Date(Date.parse(`${last.date}T00:00:00Z`) - 7 * 86400000).toISOString().slice(0, 10);
+      const base = [...ser].reverse().find((p) => p.date <= cut);
+      if (base && base.margin != null && last.margin != null) change7 = Math.round((last.margin - base.margin) * 10) / 10;
+    }
+    a.health = {
+      score, band,
+      parts: { lead: Math.round(lead), trend: Math.round(trend), local: Math.round(local) },
+      trendReady, daysToFlip, change7,
+      factors: factors.sort((x, y) => Math.abs(y.effect) - Math.abs(x.effect)),
+    };
+  });
+
+  const flipped = acs.filter((a) => a.changed);
+  return {
+    weights: usable.map((d) => ({ metric: d.metric, label: RATING_LABEL[d.metric] || d.metric, weight: Math.round((weight[d.metric] || 0) * 100), r: d.r })),
+    bands: Object.fromEntries(HEALTH_BANDS.map(([, b]) => [b, acs.filter((a) => a.health.band === b).length])),
+    flippedToNda: flipped.filter((a) => a.projected !== "YSRCP").length,
+    flippedToYsrcp: flipped.filter((a) => a.projected === "YSRCP").length,
+    trendingToFlip: acs.filter((a) => a.health.daysToFlip != null && a.health.daysToFlip <= 30).length,
+    trendReady: acs.some((a) => a.health.trendReady),
+    maxTrendDays: Math.max(0, ...acs.map((a) => a.trendDays || 0)),
+  };
+}
+
 function buildDashboard(parsed) {
   const { masters, reports, skipped } = parsed;
   const reportWindows = [...new Set(reports.map((r) => r.window).filter(Boolean))];
@@ -497,6 +589,18 @@ function buildDashboard(parsed) {
     const perfMetrics = master ? master.perfMetrics : [];
     const dr = acs.length ? drivers(acs, perfMetrics) : [];
     const risk = atRisk(acs);
+    const health = acs.length ? seatHealth(acs, dr, perfMetrics) : null;
+    // Trend-based flags (need >= 7 days): sustained 7-day shifts and leads on course to flip.
+    acs.forEach((a) => {
+      const h = a.health; if (!h) return;
+      if (h.daysToFlip != null && h.daysToFlip <= 30) {
+        an.unshift({ type: "Could flip", severity: "High", acNo: a.acNo, acName: a.acName, zone: a.zone, change: h.change7, date: latest,
+          text: `${a.acName}: ${a.projected === "YSRCP" ? "YSRCP" : `the NDA (${a.contestParty})`} lead of ${Math.abs(a.margin)}% is shrinking ${Math.abs(a.slope)}% a day — at this pace it would be gone in about ${h.daysToFlip} days.` });
+      } else if (h.change7 != null && Math.abs(h.change7) >= 3) {
+        an.unshift({ type: "Sustained shift", severity: Math.abs(h.change7) >= 5 ? "High" : "Medium", acNo: a.acNo, acName: a.acName, zone: a.zone, change: h.change7, date: latest,
+          text: `${a.acName}: over the last 7 days the NDA side's lead moved ${h.change7 > 0 ? "+" : ""}${h.change7}% (${h.change7 > 0 ? "towards" : "away from"} the NDA).` });
+      }
+    });
     const repDates = [...new Set(Object.values(reps).flatMap((b) => b.stateSeries.map((p) => p.date)))].sort();
     acs.forEach((a) => { delete a._hist; });
 
@@ -506,7 +610,7 @@ function buildDashboard(parsed) {
       previousDate: prevD,
       firstDate: dates[0] || repDates[0] || null,
       days: Math.max(dates.length, repDates.length),
-      state: reps, acs, seats, anomalies: an, drivers: dr, atRisk: risk, perfMetrics,
+      state: reps, acs, seats, anomalies: an, drivers: dr, atRisk: risk, perfMetrics, health,
       insights: seats ? insights({ seats, reps, acs, anomalies: an, drivers: dr, risk }) : [],
       issues,
     };
