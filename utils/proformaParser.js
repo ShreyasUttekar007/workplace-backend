@@ -85,10 +85,11 @@ const CANON = [
   [/impact on no of votes|no of votes|votes he/i, "votes"],
   [/^status\b/i, "status"],
   [/recent activity/i, "activity"],
-  [/profile/i, "profile"],
+  [/^(ac|assembly( constituency)?)$/i, "skip"],
+  [/profile|profle|profie|profil\b/i, "profile"],
   [/assessment/i, "assessment"],
   [/reason/i, "reason"],
-  [/actionable/i, "actionable"],
+  [/action[a-z]*ables?\b|actiomable|actionable/i, "actionable"],
   [/remarks?/i, "remarks"],
   [/mandal|town/i, "mandal"],
   [/village|ward/i, "village"],
@@ -181,7 +182,11 @@ function parseBlocks(grid, skip = new Set()) {
       continue;
     }
 
-    if (isHeaderRow(cells)) {
+    const strongHeader = () => {
+      const hits = cells.filter(([, v]) => HEADER_WORDS.test(firstLine(v))).length;
+      return hits >= Math.max(2, Math.ceil(cells.length * 0.6)) && cells.every(([, v]) => firstLine(v).length <= 40);
+    };
+    if (isHeaderRow(cells) && (!(cur && cur.columns.length && cur.rows.length) || strongHeader())) {
       if (cur && cur.columns.length && !cur.rows.length) {
         // Second header row right after the first: merge or drop.
         const same = cells.filter(([idx, v]) => {
@@ -216,6 +221,10 @@ function parseBlocks(grid, skip = new Set()) {
       if (/no\.?\s*of|number|total|count/i.test(c.label) && /^(1\/1\/1900|12\/31\/1899|1900-01-01.*|1899-12-3[01].*)$/.test(v)) {
         v = "1";
         cur.issues.push(`"${c.label}" is formatted as a date in the sheet; read as 1.`);
+      } else if (/no\.?\s*of|total|mandal|ward|gps?\b/i.test(c.label) && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) {
+        // e.g. "1/5" typed into a cell that Sheets turned into the date 1/5/2024 - keep what was typed
+        v = v.split("/").slice(0, 2).join("/");
+        cur.issues.push(`"${c.label}" is formatted as a date in the sheet; shown as ${v}.`);
       }
       if (v) { row[c.key] = v; filled++; }
     });
@@ -249,6 +258,7 @@ function parseElections(grid) {
   const out = { Assembly: [], Parliament: [] };
   const used = new Set();
   let mode = null;
+  let winCol = 5; // Kadapa layout; re-detected from each block's header row
 
   for (let i = 0; i < grid.length; i++) {
     const a = clean((grid[i] || [])[0]);
@@ -258,6 +268,8 @@ function parseElections(grid) {
 
     // header rows of the election block (Election Year / Candidate / (AGE) / Votes)
     if (/^election year/i.test(a) || /candidate name|\(age|votes secured/i.test(nonEmpty(grid[i]).map(([, v]) => v).join(" "))) {
+      const w = nonEmpty(grid[i]).find(([, v]) => /^winner/i.test(v) || /^margin/i.test(v));
+      if (w) winCol = w[0];
       used.add(i); continue;
     }
 
@@ -269,7 +281,7 @@ function parseElections(grid) {
 
     const r0 = grid[i] || [], r1 = grid[i + 1] || [], r2 = grid[i + 2] || [], r3 = grid[i + 3] || [];
     const candidates = [];
-    for (let c = 1; c <= 4; c++) {
+    for (let c = 1; c < Math.min(winCol, 5); c++) {
       const party = clean(r0[c]);
       const name = clean(r1[c]);
       if (!party && !name) continue;
@@ -282,8 +294,8 @@ function parseElections(grid) {
         pct: pm ? Number(pm[1]) : null,
       });
     }
-    const winner = clean(r0[5]);
-    const marginRaw = clean(r1[5]).replace(/,/g, "");
+    const winner = clean(r0[winCol]);
+    const marginRaw = clean(r1[winCol]).replace(/,/g, "").replace(/\.0+$/, "");
     let reason = "";
     let j = i + 4;
     for (; j < Math.min(grid.length, i + 7); j++) {
@@ -317,7 +329,12 @@ const partySplit = (s) => {
   return out;
 };
 const countPct = (s) => {
-  const t = String(s || "");
+  const t = String(s || "").trim();
+  const bare = t.replace(/,/g, "");
+  if (/^\d+(\.\d+)?$/.test(bare)) {           // a lone number: small = percentage, large = voter count
+    const v = Number(bare);
+    return v <= 100 ? { count: null, pct: v } : { count: v, pct: null };
+  }
   const n = t.replace(/,/g, "").match(/(\d{3,})/);
   const p = t.match(/([\d.]+)\s*%/);
   return { count: n ? Number(n[1]) : null, pct: p ? Number(p[1]) : null };
@@ -337,6 +354,7 @@ function toPeople(block, phones, tabName) {
         p.fields.phone = { masked: maskPhone(v), ref };
         return;
       }
+      if (c.canon === "skip") return;
       if (c.canon && c.canon !== "sno" && !p.fields[c.canon]) p.fields[c.canon] = v;
       else if (c.canon !== "sno") p.extra.push({ label: c.label, value: v });
     });
@@ -457,13 +475,29 @@ function parseProforma(tabs) {
         } else if (/demograph/i.test(b.title) || /total votes in mandal/.test(labels)) {
           demographics = b;
         }
-        b.notes.forEach((n) => narratives.push(n));
+        b.notes.forEach((n) => {
+          let t = String(n.title || "").replace(/^["'“”\s]+|["'“”\s]+$/g, "");
+          if (/(winning|loosing|losing)/i.test(t)) t = "Reason for winning / losing the election";
+          narratives.push({ ...n, title: t });
+        });
         if (b.items.length && b.title) narratives.push({ title: b.title, items: b.items });
       });
       continue;
     }
 
     if (kind === "caste") {
+      blocks.forEach((b) => {
+        const nc0 = b.columns.find((c) => /^number/i.test(c.label));
+        const pc0 = b.columns.find((c) => /^percent/i.test(c.label));
+        if (!nc0 || !pc0) return;
+        const nums = (key) => b.rows.map((r) => Number(String(r[key] || "").replace(/[,%\s]/g, ""))).filter((v) => Number.isFinite(v) && v > 0);
+        const med = (a) => { const x = [...a].sort((p, q) => p - q); return x.length ? x[Math.floor(x.length / 2)] : null; };
+        const mN = med(nums(nc0.key)); const mP = med(nums(pc0.key));
+        if (mN != null && mP != null && mN <= 100 && mP > 100) {
+          b.rows.forEach((r) => { const t = r[nc0.key]; r[nc0.key] = r[pc0.key]; r[pc0.key] = t; });
+          b.issues.push("The Number and Percentage columns are swapped in the sheet; they have been read the right way round.");
+        }
+      });
       blocks.forEach((b) => {
         // Percentages may be entered as fractions (0.2957), as percents (29.57), or - in the
         // same sheet - a mix of both. Decide each row from its voter count where possible.
@@ -509,6 +543,14 @@ function parseProforma(tabs) {
             b.issues.push(`Row "${r[b.columns[1].key]}" was one column out of line and has been realigned.`);
           }
         });
+      });
+    }
+
+    if (kind === "mandals") {
+      const CODE = { S: "Strong", F: "Favourable", B: "Battleground", D: "Difficult" };
+      blocks.forEach((b) => {
+        const sc = b.columns.find((c) => /status/i.test(c.label));
+        if (sc) b.rows.forEach((r) => { const v = String(r[sc.key] || "").trim().toUpperCase(); if (CODE[v]) r[sc.key] = CODE[v]; });
       });
     }
 
