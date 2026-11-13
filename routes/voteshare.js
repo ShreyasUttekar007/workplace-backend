@@ -3,6 +3,7 @@
  *
  *   GET /api/voteshare            full dashboard (every DMA window found)
  *   GET /api/voteshare?refresh=1  re-read the Google Sheets now
+ *   GET /api/voteshare/weekly     one-page weekly brief (?end=YYYY-MM-DD, a Saturday)
  *
  * Reads every tab of the configured spreadsheets with one service account,
  * recognises the AC master and the CM / party / Alliance / govt-rating report
@@ -17,6 +18,7 @@ const { google } = require("googleapis");
 const authenticateUser = require("../middleware/authenticateUser");
 const { parseWorkbooks } = require("../utils/voteshareParser");
 const { buildDashboard, filterByDate, dateBounds } = require("../utils/voteshareStats");
+const { buildWeeklyBrief, listWeekEnds } = require("../utils/weeklyBrief");
 
 const router = express.Router();
 router.use(authenticateUser);
@@ -112,6 +114,41 @@ router.get("/", async (req, res) => {
     return res.send(zlib.gunzipSync(gz));
   } catch (err) {
     console.warn("[voteshare]", err.message);
+    res.status(502).json({ error: explain(err) });
+  }
+});
+
+// One-page weekly brief. ?end=YYYY-MM-DD picks the week (defaults to the latest
+// Saturday with data, or "week to date" when the data ends mid-week).
+router.get("/weekly", async (req, res) => {
+  try {
+    if (!sheetCache || req.query.refresh === "1" || Date.now() - sheetCache.at > CACHE_MS) {
+      sheetCache = await readSheets();
+      viewCache.clear();
+    }
+    const weekEnds = listWeekEnds(sheetCache.parsed);
+    if (!weekEnds.length) return res.json({ weekEnds: [], end: null, windows: [], byWindow: {} });
+    const asked = isoOk(req.query.end);
+    const end = weekEnds.some((x) => x.end === asked) ? asked : weekEnds[0].end;
+    const key = `weekly|${end}`;
+    if (!viewCache.has(key)) {
+      const brief = buildWeeklyBrief(sheetCache.parsed, end);
+      brief.weekEnds = weekEnds;
+      brief.end = end;
+      brief.fetchedAt = new Date(sheetCache.at).toISOString();
+      if (viewCache.size > 30) viewCache.delete(viewCache.keys().next().value);
+      viewCache.set(key, zlib.gzipSync(JSON.stringify(brief)));
+    }
+    const gz = viewCache.get(key);
+    res.set("Content-Type", "application/json; charset=utf-8");
+    res.set("Cache-Control", "no-store");
+    if (/\bgzip\b/.test(req.headers["accept-encoding"] || "")) {
+      res.set("Content-Encoding", "gzip");
+      return res.send(gz);
+    }
+    return res.send(zlib.gunzipSync(gz));
+  } catch (err) {
+    console.warn("[voteshare weekly]", err.message);
     res.status(502).json({ error: explain(err) });
   }
 });
