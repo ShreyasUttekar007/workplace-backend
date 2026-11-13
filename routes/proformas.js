@@ -36,6 +36,7 @@ const PROFORMA_EMAILS = [
   "khushboo@showtimeconsulting.in",
   "alimpan@showtimeconsulting.in",
   "aditya.pandit@showtimeconsulting.in",
+  "sonkar.shalini@showtimeconsulting.in",
 ].map((e) => e.toLowerCase());
 
 const norm = (v) => String(v == null ? "" : v).replace(/["'\s]/g, "").toLowerCase();
