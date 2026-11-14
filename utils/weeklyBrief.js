@@ -141,6 +141,26 @@ function weekEntity(ent, a, b, govt) {
   return pl;
 }
 
+/** Pool a week of master rows by zone or PC: sample-weighted party shares. */
+function regionPool(master, a, b, key) {
+  const g = new Map();
+  (master ? master.rows : []).forEach((r) => {
+    if (!inRange(r.date, a, b)) return;
+    const k = String(r[key] || "").trim();
+    if (!k) return;
+    if (!g.has(k)) g.set(k, []);
+    g.get(k).push({ sample: r.sample, values: r.party });
+  });
+  const out = new Map();
+  g.forEach((pts, k) => {
+    const pl = pool(pts);
+    const nda = NDA_PARTIES.reduce((t, x) => t + (pl.values[x] || 0), 0);
+    out.set(k, { n: pl.n, tdp: pl.values.TDP, ysrcp: pl.values.YSRCP, jsp: pl.values.JSP, bjp: pl.values.BJP,
+      nda, gap: pl.values.YSRCP != null ? nda - pl.values.YSRCP : null });
+  });
+  return out;
+}
+
 function stateBlock(reps, kind, a, b, pa, pb, master) {
   const rep = reps.find((r) => r.kind === kind);
   const ent = rep && Object.values(rep.entities).find((e) => e.type === "state");
@@ -269,20 +289,42 @@ function buildWeeklyBrief(parsed, end) {
     movers.up = mv.filter((x) => x.change > 0).slice(0, 5);
     movers.down = mv.filter((x) => x.change < 0).reverse().slice(0, 5);
 
-    const zoneMap = {};
+    const zPoolNow = regionPool(master, a, b, "zone");
+    const zPoolPrev = regionPool(master, pa, pb, "zone");
+    const zSeats = {};
     acs.forEach((x) => {
-      const z = (zoneMap[x.zone] = zoneMap[x.zone] || { zone: x.zone, seats: 0, ahead: 0, aheadPrev: 0, prevSeats: 0, mSum: 0, mPrevSum: 0, mPrevN: 0 });
+      const z = (zSeats[x.zone] = zSeats[x.zone] || { seats: 0, ahead: 0, aheadPrev: 0, prevSeats: 0 });
       z.seats++; if (x.side !== "YSRCP") z.ahead++;
-      z.mSum += x.margin;
-      if (x.marginPrev != null) { z.mPrevSum += x.marginPrev; z.mPrevN++; if (x.sidePrev !== "YSRCP") z.aheadPrev++; z.prevSeats++; }
+      if (x.sidePrev != null) { z.prevSeats++; if (x.sidePrev !== "YSRCP") z.aheadPrev++; }
     });
-    const zones = Object.values(zoneMap).map((z) => ({
-      zone: z.zone, seats: z.seats, ahead: z.ahead,
-      aheadPrev: z.prevSeats ? z.aheadPrev : null,
-      gap: Math.round((z.mSum / z.seats) * 10) / 10,
-      gapPrev: z.mPrevN ? Math.round((z.mPrevSum / z.mPrevN) * 10) / 10 : null,
-      change: z.mPrevN ? Math.round(((z.mSum / z.seats) - (z.mPrevSum / z.mPrevN)) * 10) / 10 : null,
-    })).sort((x, y) => x.zone.localeCompare(y.zone, undefined, { numeric: true }));
+    const dd = (nw, pv) => (nw == null || pv == null ? null : Math.round((nw - pv) * 1000) / 10);
+    const zones = [...zPoolNow.keys()].map((zn) => {
+      const nw = zPoolNow.get(zn); const pv = zPoolPrev.get(zn) || {};
+      const sMeta = zSeats[zn] || { seats: 0, ahead: 0, aheadPrev: 0, prevSeats: 0 };
+      return {
+        zone: zn, seats: sMeta.seats, ahead: sMeta.ahead,
+        aheadPrev: sMeta.prevSeats ? sMeta.aheadPrev : null, n: nw.n,
+        tdp: r4(nw.tdp), tdpCh: dd(nw.tdp, pv.tdp), ysrcp: r4(nw.ysrcp), ysrcpCh: dd(nw.ysrcp, pv.ysrcp),
+        jsp: r4(nw.jsp), jspCh: dd(nw.jsp, pv.jsp), bjp: r4(nw.bjp), bjpCh: dd(nw.bjp, pv.bjp),
+        gap: p1(nw.gap), gapCh: dd(nw.gap, pv.gap), change: dd(nw.gap, pv.gap),
+      };
+    }).sort((x, y) => x.zone.localeCompare(y.zone, undefined, { numeric: true }));
+
+    const pPoolNow = regionPool(master, a, b, "pc");
+    const pPoolPrev = regionPool(master, pa, pb, "pc");
+    const pMeta = {};
+    acs.forEach((x) => {
+      const q = (pMeta[x.pc] = pMeta[x.pc] || { zone: x.zone, seats: 0, ahead: 0, aheadPrev: 0, prevSeats: 0 });
+      q.seats++; if (x.side !== "YSRCP") q.ahead++;
+      if (x.sidePrev != null) { q.prevSeats++; if (x.sidePrev !== "YSRCP") q.aheadPrev++; }
+    });
+    const pcs = [...pPoolNow.keys()].map((name) => {
+      const nw = pPoolNow.get(name); const pv = pPoolPrev.get(name) || {};
+      const q = pMeta[name] || { zone: "", seats: 0, ahead: 0, aheadPrev: 0, prevSeats: 0 };
+      return { pc: name, zone: q.zone, seats: q.seats, ahead: q.ahead, aheadPrev: q.prevSeats ? q.aheadPrev : null,
+        tdp: r4(nw.tdp), tdpCh: dd(nw.tdp, pv.tdp), ysrcp: r4(nw.ysrcp), ysrcpCh: dd(nw.ysrcp, pv.ysrcp),
+        gap: p1(nw.gap), gapCh: dd(nw.gap, pv.gap) };
+    }).sort((x, y) => (x.zone === y.zone ? x.pc.localeCompare(y.pc) : String(x.zone).localeCompare(String(y.zone), undefined, { numeric: true })));
 
     const state = {
       party: stateBlock(reps, "party", a, b, pa, pb, master),
@@ -297,8 +339,12 @@ function buildWeeklyBrief(parsed, end) {
       const ndaPrev = spa.prev.TDP != null ? NDA_PARTIES.reduce((t, k) => t + (spa.prev[k] || 0), 0) : null;
       const ch = ndaPrev == null ? null : d1(nda, ndaPrev);
       const moe = changeMoe(nda, spa.n, ndaPrev, spa.prevN);
+      const v24 = spa.vs2024 || {};
+      const ndaVs2024 = ["TDP", "JSP", "BJP"].every((k) => v24[k] != null)
+        ? Math.round((v24.TDP + v24.JSP + v24.BJP) * 10) / 10 : null;
       state.headline = { nda: r4(nda), ndaPrev: r4(ndaPrev), ysrcp: spa.values.YSRCP, ysrcpPrev: spa.prev.YSRCP,
-        change: ch, ysrcpChange: spa.change.YSRCP, moe, significant: ch != null && moe != null ? Math.abs(ch) > moe : null };
+        change: ch, ysrcpChange: spa.change.YSRCP, moe, significant: ch != null && moe != null ? Math.abs(ch) > moe : null,
+        vs2024: ndaVs2024, ysrcpVs2024: v24.YSRCP != null ? v24.YSRCP : null };
     }
 
     const groups = [];
@@ -338,7 +384,7 @@ function buildWeeklyBrief(parsed, end) {
       prevInterviews: master ? master.rows.filter((r) => inRange(r.date, pa, pb)).reduce((t, r) => t + (r.sample || 0), 0) : 0,
     };
 
-    const model = { window: w, seats, movers, zones, state, groups, watch, sample, hasPrev };
+    const model = { window: w, seats, movers, zones, pcs, state, groups, watch, sample, hasPrev };
     model.takeaways = takeaways(model);
     out.byWindow[w] = model;
   });
