@@ -286,8 +286,8 @@ function buildWeeklyBrief(parsed, end) {
     const movers = { up: [], down: [] };
     const mv = acs.filter((x) => x.change != null).sort((x, y) => y.change - x.change)
       .map(({ acNo, acName, zone, pc: p, margin, marginPrev, change, side }) => ({ acNo, acName, zone, pc: p, margin, marginPrev, change, side }));
-    movers.up = mv.filter((x) => x.change > 0).slice(0, 5);
-    movers.down = mv.filter((x) => x.change < 0).reverse().slice(0, 5);
+    movers.up = mv.filter((x) => x.change > 0).slice(0, 8);
+    movers.down = mv.filter((x) => x.change < 0).reverse().slice(0, 8);
 
     const zPoolNow = regionPool(master, a, b, "zone");
     const zPoolPrev = regionPool(master, pa, pb, "zone");
@@ -321,7 +321,7 @@ function buildWeeklyBrief(parsed, end) {
     const pcs = [...pPoolNow.keys()].map((name) => {
       const nw = pPoolNow.get(name); const pv = pPoolPrev.get(name) || {};
       const q = pMeta[name] || { zone: "", seats: 0, ahead: 0, aheadPrev: 0, prevSeats: 0 };
-      return { pc: name, zone: q.zone, seats: q.seats, ahead: q.ahead, aheadPrev: q.prevSeats ? q.aheadPrev : null,
+      return { pc: name, zone: q.zone, seats: q.seats, ahead: q.ahead, aheadPrev: q.prevSeats ? q.aheadPrev : null, n: nw.n,
         tdp: r4(nw.tdp), tdpCh: dd(nw.tdp, pv.tdp), ysrcp: r4(nw.ysrcp), ysrcpCh: dd(nw.ysrcp, pv.ysrcp),
         gap: p1(nw.gap), gapCh: dd(nw.gap, pv.gap) };
     }).sort((x, y) => (x.zone === y.zone ? x.pc.localeCompare(y.pc) : String(x.zone).localeCompare(String(y.zone), undefined, { numeric: true })));
@@ -362,6 +362,87 @@ function buildWeeklyBrief(parsed, end) {
       groups.sort((x, y) => (y.significant === x.significant ? Math.abs(y.change || 0) - Math.abs(x.change || 0) : y.significant ? 1 : -1));
     }
 
+    /* ---- deeper weekly statistics ---- */
+    // Which seats moved beyond what survey error can explain (change vs its own error)
+    let beyondNda = 0; let beyondYs = 0; const beyondSet = new Set();
+    acs.forEach((x) => {
+      const pm = prev.get(x.acNo);
+      if (x.change == null || x.moe == null || !pm || pm.moe == null) return;
+      const chMoe = Math.round(Math.sqrt(x.moe * x.moe + pm.moe * pm.moe) * 10) / 10;
+      if (Math.abs(x.change) > chMoe) { beyondSet.add(x.acNo); if (x.change > 0) beyondNda++; else beyondYs++; }
+    });
+    movers.up.forEach((x) => { x.beyond = beyondSet.has(x.acNo); });
+    movers.down.forEach((x) => { x.beyond = beyondSet.has(x.acNo); });
+    const moveStats = { total: acs.length, beyondNda, beyondYs, within: Math.max(acs.length - beyondNda - beyondYs, 0) };
+
+    // Seat-structure: how the 175 margins are distributed, this week vs last
+    const BUCKETS = [
+      { label: "YSRCP by 10%+", lo: -Infinity, hi: -10 }, { label: "YSRCP by 5–10%", lo: -10, hi: -5 },
+      { label: "YSRCP by 0–5%", lo: -5, hi: 0 }, { label: "NDA by 0–5%", lo: 0, hi: 5 },
+      { label: "NDA by 5–10%", lo: 5, hi: 10 }, { label: "NDA by 10–20%", lo: 10, hi: 20 },
+      { label: "NDA by 20%+", lo: 20, hi: Infinity },
+    ];
+    const bucketOf = (mg) => BUCKETS.findIndex((bk) => mg > bk.lo - 1e-9 && mg <= bk.hi);
+    const dist = BUCKETS.map((bk) => ({ label: bk.label, now: 0, prev: 0 }));
+    acs.forEach((x) => { const i = bucketOf(x.margin); if (i >= 0) dist[i].now++; });
+    [...prev.values()].forEach((x) => { const i = bucketOf(x.margin); if (i >= 0) dist[i].prev++; });
+
+    // Daily statewide line (both weeks) pooled from the master
+    const dayMap = new Map();
+    (master ? master.rows : []).forEach((r) => {
+      if (!inRange(r.date, pa, b)) return;
+      if (!dayMap.has(r.date)) dayMap.set(r.date, []);
+      dayMap.get(r.date).push({ sample: r.sample, values: r.party });
+    });
+    const daily = [...dayMap.keys()].sort().map((dte) => {
+      const pl = pool(dayMap.get(dte));
+      const nda = NDA_PARTIES.reduce((t, k) => t + (pl.values[k] || 0), 0);
+      return { date: dte, nda: r4(nda), tdp: r4(pl.values.TDP), ysrcp: r4(pl.values.YSRCP),
+        gap: p1(nda - (pl.values.YSRCP || 0)), n: pl.n, inWeek: dte >= a };
+    });
+
+    // Steadiness (typical day-to-day movement) and within-week direction
+    const sd = (vals) => { if (vals.length < 3) return null; const mn = vals.reduce((t, v) => t + v, 0) / vals.length;
+      return Math.round(Math.sqrt(vals.reduce((t, v) => t + (v - mn) ** 2, 0) / (vals.length - 1)) * 10000) / 100; };
+    const stability = { now: sd(daily.filter((d) => d.inWeek).map((d) => d.nda)),
+      prev: sd(daily.filter((d) => !d.inWeek).map((d) => d.nda)) };
+    const wkPts = daily.filter((d) => d.inWeek);
+    let momentum = null;
+    if (wkPts.length >= 3) {
+      const xs = wkPts.map((_, i) => i); const ys = wkPts.map((d) => d.gap);
+      const mx = xs.reduce((t, v) => t + v, 0) / xs.length; const my = ys.reduce((t, v) => t + v, 0) / ys.length;
+      const den = xs.reduce((t, v) => t + (v - mx) ** 2, 0);
+      if (den > 0) momentum = Math.round((xs.reduce((t, v, i) => t + (v - mx) * (ys[i] - my), 0) / den) * 100) / 100;
+    }
+
+    // Performance questions, pooled: 5 statewide metrics + zone-wise Govt & MLA performance
+    const PERF_ORDER = ["Govt Performance", "MLA Performance", "MLA Availability", "MLA Behaviour", "MLA Retention"];
+    const perfNames = master ? PERF_ORDER.filter((k) => master.perfMetrics.includes(k))
+      .concat(master.perfMetrics.filter((k) => !PERF_ORDER.includes(k))) : [];
+    const perfPool = (rows2, name) => {
+      let wsum = 0; let vsum = 0;
+      rows2.forEach((r) => { const sc = r.perf && r.perf[name] ? r.perf[name].score : null;
+        if (!Number.isFinite(sc)) return; const wt = Number.isFinite(r.sample) && r.sample > 0 ? r.sample : 1;
+        vsum += sc * wt; wsum += wt; });
+      return wsum ? vsum / wsum : null;
+    };
+    const rowsNow = master ? master.rows.filter((r) => inRange(r.date, a, b)) : [];
+    const rowsPrev = master ? master.rows.filter((r) => inRange(r.date, pa, pb)) : [];
+    const perf = { metrics: perfNames.map((name) => {
+      const nw = perfPool(rowsNow, name); const pv = perfPool(rowsPrev, name);
+      return { key: name, now: r4(nw), prev: r4(pv), ch: nw != null && pv != null ? d1(nw, pv) : null };
+    }), zones: [] };
+    if (master && perfNames.length) {
+      const zn = [...new Set(rowsNow.map((r) => r.zone).filter(Boolean))].sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+      perf.zones = zn.map((z) => {
+        const rN = rowsNow.filter((r) => r.zone === z); const rP = rowsPrev.filter((r) => r.zone === z);
+        const g = perfPool(rN, "Govt Performance"); const gp = perfPool(rP, "Govt Performance");
+        const mp = perfPool(rN, "MLA Performance"); const mpp = perfPool(rP, "MLA Performance");
+        return { zone: z, govt: r4(g), govtCh: g != null && gp != null ? d1(g, gp) : null,
+          mla: r4(mp), mlaCh: mp != null && mpp != null ? d1(mp, mpp) : null };
+      });
+    }
+
     const sN = snapNow.byWindow[w] || {}; const sP = snapPrev.byWindow[w] || {};
     const watch = {
       bandsNow: sN.health ? sN.health.bands : null,
@@ -384,7 +465,8 @@ function buildWeeklyBrief(parsed, end) {
       prevInterviews: master ? master.rows.filter((r) => inRange(r.date, pa, pb)).reduce((t, r) => t + (r.sample || 0), 0) : 0,
     };
 
-    const model = { window: w, seats, movers, zones, pcs, state, groups, watch, sample, hasPrev };
+    const model = { window: w, seats, movers, zones, pcs, state, groups, watch, sample, hasPrev,
+      moveStats, dist, daily, stability, momentum, perf };
     model.takeaways = takeaways(model);
     out.byWindow[w] = model;
   });
