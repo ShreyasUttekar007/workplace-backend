@@ -204,7 +204,7 @@ router.get("/caste-census", async (req, res) => {
 // Andhra Pradesh leadership viewers. Starts as the same people as Punjab so
 // nobody gains access by accident - edit this list to give the AP team access.
 const AP_DASHBOARD_EMAILS_RAW = [
-  ...DASHBOARD_EMAILS_RAW,
+  ...DASHBOARD_EMAILS_RAW.filter((e) => !["rajvardhan@showtimeconsulting.in"].includes(e.toLowerCase())), // Punjab-only: no AP dashboards
 ];
 const AP_DASHBOARD_EMAILS = AP_DASHBOARD_EMAILS_RAW.map((e) => e.toLowerCase());
 const canViewAP = (req) => AP_DASHBOARD_EMAILS.includes(emailOf(req)) || isAdmin(req);
