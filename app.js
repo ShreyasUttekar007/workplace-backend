@@ -47,6 +47,7 @@ const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const momRagRoutes = require("./routes/momRag");
 const proformaRoutes = require("./routes/proformas");
+app.use("/api/punjab-proformas", require("./routes/punjabProformas"));
 const MongoDBStore = require("connect-mongodb-session")(session);
 const app = express();
 require("./routes/leaveReportJob");
