@@ -34,6 +34,7 @@ router.use(authenticateUser);
 const PUNJAB_PROFORMA_EMAILS = [
   "pardhasaradhi@showtimeconsulting.in",
   "sonkar.shalini@showtimeconsulting.in",
+  "rajvardhan@showtimeconsulting.in",
 ].map((e) => e.toLowerCase());
 
 const norm = (v) => String(v == null ? "" : v).replace(/["'\s]/g, "").toLowerCase();
