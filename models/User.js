@@ -124,7 +124,11 @@ UserSchema.pre("save", function (next) {
 
 // Compares the password entered with the hash stored in the database
 UserSchema.methods.comparePassword = function (candidatePassword, next) {
-  bcrypt.compare(candidatePassword, this.password, function (err, isMatch) {
+  const hash = this.password;
+  const typed = String(candidatePassword || "");
+  bcrypt.compare(typed, hash, function (err, isMatch) {
+    // passwords are saved trimmed: retry without stray spaces added by phone keyboards
+    if (!err && !isMatch && typed.trim() !== typed) return bcrypt.compare(typed.trim(), hash, next);
     if (err) return next(err);
     next(null, isMatch);
   });

@@ -88,7 +88,7 @@ router.post("/signup", async (req, res, next) => {
     const user = new User({ userName, email, password, roles, location });
     await user.save();
     const token = jwt.sign({ userId: user._id }, config.jwtSecret, {
-      expiresIn: "1d",
+      expiresIn: process.env.JWT_EXPIRES_IN || "30d",
     });
     res.status(201).json({ message: "User created successfully", token });
   } catch (error) {
@@ -98,7 +98,9 @@ router.post("/signup", async (req, res, next) => {
 
 router.post("/login", async (req, res, next) => {
   try {
-    const { userName, email, password } = req.body;
+    const { userName } = req.body;
+    const email = String(req.body.email || "").trim().toLowerCase(); // phones auto-capitalise and add spaces
+    const password = String(req.body.password || "");
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -115,7 +117,7 @@ router.post("/login", async (req, res, next) => {
       }
 
       const token = jwt.sign({ userId: user._id }, config.jwtSecret, {
-        expiresIn: "1d",
+        expiresIn: process.env.JWT_EXPIRES_IN || "30d",
       });
 
       const userObj = {
@@ -131,7 +133,7 @@ router.post("/login", async (req, res, next) => {
       req.session.token = token;
 
       res.cookie("token", token, {
-        maxAge: 36000000,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days, same as the token
         sameSite: "none",
         secure: true,
         httpOnly: false,
@@ -258,7 +260,7 @@ router.put("/update-password", async (req, res, next) => {
 
       await user.save();
       const newToken = jwt.sign({ userId: user._id }, config.jwtSecret, {
-        expiresIn: "1d",
+        expiresIn: process.env.JWT_EXPIRES_IN || "30d",
       });
 
       res
