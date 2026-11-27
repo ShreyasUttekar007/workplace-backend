@@ -263,6 +263,7 @@ const EMBEDS = {
   "punjab-ac-dashboard": {
     project: "punjab",
     sameOrigin: true, // hosted on this server at /punjab-ac/ and guarded by nginx auth_request
+    controls: false, // no floating Back / Reload / Open-in-new-tab bar
     title: "Punjab AC Level Dashboard",
     url: "/punjab-ac/",
   },
