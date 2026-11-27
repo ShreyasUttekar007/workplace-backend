@@ -3,6 +3,51 @@ const router = express.Router();
 const authenticateUser = require("../middleware/authenticateUser");
 const { readTab, clearCache } = require("../utils/googleSheets");
 
+/* ---- Same-origin embedded dashboards (e.g. the Punjab AC dashboard at /punjab-ac/) ----
+ * nginx asks /embed-check/:key (auth_request) before serving every page, file and
+ * API call of the dashboard. The browser proves who it is with a short-lived,
+ * httpOnly cookie that /embed-access/:key sets after the normal access check.
+ * This route sits above router.use(authenticateUser) because nginx's sub-request
+ * carries cookies, not the portal's Authorization header.
+ */
+const embedJwt = require("jsonwebtoken");
+const embedCfg = require("../config");
+const EMBED_COOKIE_HOURS = 12;
+const embedCookieName = (key) => `stc_embed_${key}`;
+const embedCheckCache = new Map(); // "email|key" -> { ok, at }
+
+function setEmbedCookie(req, res, key, def) {
+  const path = String(def.url || "/").replace(/\/+$/, "") || "/";
+  const token = embedJwt.sign({ e: norm(req.user && req.user.email), k: key }, embedCfg.jwtSecret, {
+    expiresIn: `${EMBED_COOKIE_HOURS}h`,
+  });
+  res.cookie(embedCookieName(key), token, {
+    httpOnly: true, secure: true, sameSite: "strict", path, maxAge: EMBED_COOKIE_HOURS * 3600 * 1000,
+  });
+}
+
+router.get("/embed-check/:key", async (req, res) => {
+  try {
+    const key = req.params.key;
+    const def = EMBEDS[key];
+    if (!def || !def.sameOrigin) return res.sendStatus(401);
+    const pair = String(req.headers.cookie || "").split(/;\s*/).find((c) => c.startsWith(embedCookieName(key) + "="));
+    if (!pair) return res.sendStatus(401);
+    const claims = embedJwt.verify(decodeURIComponent(pair.slice(pair.indexOf("=") + 1)), embedCfg.jwtSecret);
+    if (claims.k !== key || !claims.e) return res.sendStatus(401);
+    const ck = `${claims.e}|${key}`;
+    const hit = embedCheckCache.get(ck);
+    if (hit && Date.now() - hit.at < 60 * 1000) return res.sendStatus(hit.ok ? 204 : 403);
+    const User = require("../models/User");
+    const user = await User.findOne({ email: claims.e }, { email: 1, roles: 1 }).lean();
+    const ok = !!user && PROJECTS[def.project].gate({ user });
+    embedCheckCache.set(ck, { ok, at: Date.now() });
+    return res.sendStatus(ok ? 204 : 403);
+  } catch (e) {
+    return res.sendStatus(401);
+  }
+});
+
 router.use(authenticateUser);
 
 // Directors + reporting managers: full access to every dashboard.
@@ -215,6 +260,12 @@ const PROJECTS = {
 };
 
 const EMBEDS = {
+  "punjab-ac-dashboard": {
+    project: "punjab",
+    sameOrigin: true, // hosted on this server at /punjab-ac/ and guarded by nginx auth_request
+    title: "Punjab AC Level Dashboard",
+    url: "/punjab-ac/",
+  },
   alliance: {
     project: "punjab",
     title: "Alliance & Party Wise Performance",
@@ -243,6 +294,10 @@ const EMBEDS = {
 };
 
 router.get("/embed-access/:key", async (req, res) => {
+  const sameOriginDef = EMBEDS[req.params.key];
+  if (sameOriginDef && sameOriginDef.sameOrigin && PROJECTS[sameOriginDef.project].gate(req)) {
+    setEmbedCookie(req, res, req.params.key, sameOriginDef);
+  }
   const d = EMBEDS[req.params.key];
   if (!d) return res.status(404).json({ error: "Unknown dashboard." });
   const proj = PROJECTS[d.project];
